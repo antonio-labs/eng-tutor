@@ -108,6 +108,76 @@ I test non richiedono credenziali e non chiamano provider reali. Coprono schema,
 curriculum, correzione, persistenza, API, retry, timeout e contabilità tramite
 risposte simulate e tariffe deterministiche.
 
+## Contenuti, fonti e durata
+
+Il [curriculum completo e la tabella di copertura](A1-CURRICULUM.md) documentano
+le 36 unità e le fonti usate per ciascun argomento. Il perimetro deriva dal
+[British Council–EAQUALS Core Inventory for General English](https://www.teachingenglish.org.uk/sites/teacheng/files/pub-british-council-eaquals-core-inventoryv2.pdf),
+con riscontri nelle risorse British Council e Cambridge collegate nel curriculum.
+Il [CEFR del Consiglio d'Europa](https://www.coe.int/en/web/common-european-framework-reference-languages/table-3-cefr-3.3-common-reference-levels-qualitative-aspects-of-spoken-language-use)
+descrive competenze comunicative più ampie: completare questo percorso di sola
+grammatica non certifica il raggiungimento del livello A1.
+
+Ogni lezione riporta **15 minuti stimati**: 3 per spiegazione ed esempi, 9 per i
+sei esercizi e 3 per correzione e revisione. È un budget didattico assegnato dal
+backend, non un timer né una misura del tempo reale. Le 36 unità corrispondono a
+540 minuti nominali, esclusi i tentativi ripetuti.
+
+## AI e logica deterministica
+
+L'AI viene chiamata soltanto quando si avvia una nuova lezione. Riceve livello,
+identificativo, titolo e obiettivo dell'unità, lingue richieste e schema JSON;
+non riceve lo storico, le risposte dell'utente o le lezioni precedenti. Il
+provider produce spiegazione, esempi, domande, soluzioni e motivazioni, poi il
+backend valida tutto con Pydantic prima del salvataggio.
+
+Correzione, punteggio, soglia 5/6, avanzamento, scarto, storico e consultazione
+dei risultati sono logica locale deterministica e non fanno altre richieste AI.
+Il comportamento previsto è definito nella [specifica dell'MVP](MVP-SPEC.md).
+
+## Dati locali e backup
+
+- la chiave API resta nel processo backend e non viene inviata al browser;
+- lezioni, soluzioni, risposte inviate, risultati e stime di costo sono in
+  `DATABASE_PATH`, per impostazione predefinita `data/tutor.db`;
+- le sole selezioni non ancora inviate sono nel `localStorage` del browser;
+- l'app non include account, analytics, sincronizzazione o backup automatici;
+- il provider LLM tratta il prompt descritto sopra secondo i propri termini e
+  le proprie regole di conservazione, da verificare prima del collaudo reale.
+
+Per un backup manuale, arrestare l'app e copiare il database in una posizione
+sicura, adattando i percorsi se `DATABASE_PATH` è diverso:
+
+```bash
+cp data/tutor.db /percorso/sicuro/tutor-backup.db
+```
+
+La copia conserva lezioni e storico, ma non le selezioni provvisorie presenti
+soltanto nel browser.
+
+## Costi
+
+Per ogni chiamata l'app salva provider, modello, consumi disponibili, stima USD
+e riferimento tariffario. La stima usa i dati restituiti da LiteLLM e la sua
+[mappa dei costi dei modelli](https://docs.litellm.ai/docs/completion/token_usage).
+Tutti i tentativi attribuiti alla stessa generazione concorrono al totale; i
+consumi noti di generazioni fallite restano visibili separatamente.
+
+La dicitura **parziale** indica che soltanto alcuni tentativi hanno un costo
+noto; **non disponibile** indica che manca il consumo o il prezzo. Gli importi
+vengono conservati come stimati al momento della chiamata e non sono aggiornati
+quando cambiano le tariffe. Non equivalgono alla fattura del provider e l'app
+non applica un limite di spesa: limiti, crediti e fatturazione vanno controllati
+nel servizio scelto.
+
+## Stato del collaudo LLM
+
+Al 19 settembre 2026 non è stato scelto né chiamato un provider reale. Il client,
+la validazione, i retry, gli errori, i consumi e i costi sono verificati con mock
+deterministici; il flusso browser è stato provato con il contenuto di esempio.
+Restano aperti autenticazione reale, capacità del modello, qualità didattica,
+latenza, consumi e tariffa effettivi descritti nel blocco 5 di [tasks.md](tasks.md).
+
 ## Risoluzione dei problemi
 
 **La home non consente di iniziare una lezione.** Verificare che `.env` contenga
