@@ -1,0 +1,105 @@
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+
+NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+OptionIndex = Annotated[int, Field(strict=True, ge=0, le=2)]
+PASSING_CORRECT_ANSWERS = 5
+
+
+class Model(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CurriculumUnit(Model):
+    id: NonEmptyText
+    title: NonEmptyText
+    objective: NonEmptyText
+
+
+class LessonExample(Model):
+    sentence: NonEmptyText
+    note: NonEmptyText
+
+
+class Exercise(Model):
+    id: NonEmptyText
+    question: NonEmptyText
+    options: list[NonEmptyText] = Field(min_length=3, max_length=3)
+    correct_option: OptionIndex
+    rationale: NonEmptyText
+
+    @model_validator(mode="after")
+    def options_are_distinct(self) -> "Exercise":
+        if len(set(self.options)) != 3:
+            raise ValueError("exercise options must be distinct")
+        return self
+
+
+class LessonContent(Model):
+    unit_id: NonEmptyText
+    explanation: NonEmptyText
+    examples: list[LessonExample] = Field(min_length=3, max_length=3)
+    exercises: list[Exercise] = Field(min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def exercise_ids_are_unique(self) -> "LessonContent":
+        ids = [exercise.id for exercise in self.exercises]
+        if len(set(ids)) != len(ids):
+            raise ValueError("exercise ids must be unique")
+        return self
+
+    def for_browser(self) -> "LessonView":
+        return LessonView(
+            unit_id=self.unit_id,
+            explanation=self.explanation,
+            examples=self.examples,
+            exercises=[
+                PublicExercise(id=item.id, question=item.question, options=item.options)
+                for item in self.exercises
+            ],
+        )
+
+
+class PublicExercise(Model):
+    id: NonEmptyText
+    question: NonEmptyText
+    options: list[NonEmptyText] = Field(min_length=3, max_length=3)
+
+
+class LessonTiming(Model):
+    explanation_and_examples_minutes: Literal[3] = 3
+    exercises_minutes: Literal[9] = 9
+    review_minutes: Literal[3] = 3
+    total_minutes: Literal[15] = 15
+
+
+class LessonView(Model):
+    unit_id: NonEmptyText
+    explanation: NonEmptyText
+    examples: list[LessonExample]
+    exercises: list[PublicExercise]
+    timing: LessonTiming = Field(default_factory=LessonTiming)
+
+
+class AnswerResult(Model):
+    exercise_id: NonEmptyText
+    selected_option: OptionIndex
+    correct_option: OptionIndex
+    solution: NonEmptyText
+    rationale: NonEmptyText
+    is_correct: bool
+
+
+class LessonResult(Model):
+    unit_id: NonEmptyText
+    answers: list[AnswerResult]
+    correct_answers: int = Field(ge=0, le=6)
+    percentage: int = Field(ge=0, le=100)
+    passed: bool
+
+
+class AttemptResult(Model):
+    unit_id: NonEmptyText
+    correct_answers: int = Field(ge=0, le=6)

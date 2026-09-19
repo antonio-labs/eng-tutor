@@ -1,0 +1,17 @@
+{
+  "unit_id": "A1-01",
+  "explanation": "In inglese il pronome soggetto precede il verbo be. Al presente si usano am con I, is con he, she e it, e are con you, we e they.",
+  "examples": [
+    {"sentence": "I am Luca.", "note": "Con I si usa am."},
+    {"sentence": "She is a doctor.", "note": "Con she si usa is."},
+    {"sentence": "They are friends.", "note": "Con they si usa are."}
+  ],
+  "exercises": [
+    {"id": "q1", "question": "I ___ Anna.", "options": ["am", "is", "are"], "correct_option": 0, "rationale": "Il pronome I richiede am."},
+    {"id": "q2", "question": "Marco ___ from Rome.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "Marco corrisponde a he, quindi richiede is."},
+    {"id": "q3", "question": "We ___ students.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome we richiede are."},
+    {"id": "q4", "question": "My cat ___ small.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "My cat corrisponde a it, quindi richiede is."},
+    {"id": "q5", "question": "You ___ Paolo.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome you richiede are."},
+    {"id": "q6", "question": "Sara and Tom ___ colleagues.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Sara and Tom corrisponde a they, quindi richiede are."}
+  ]
+}

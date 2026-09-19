@@ -1,0 +1,19 @@
+[project]
+name = "ai-eng-tutor"
+version = "0.1.0"
+description = "Tutor locale per il curriculum di grammatica inglese A1"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.141.1",
+    "pydantic==2.13.5",
+    "uvicorn==0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
