@@ -10,6 +10,8 @@ from app.models import (
     AnswerSubmission,
     CompletedLesson,
     CurriculumUnit,
+    DiscardedLesson,
+    HistoryItem,
     LearningSummary,
     LessonContent,
     LessonSession,
@@ -89,6 +91,32 @@ def create_app(
         except LessonNotFound as error:
             raise HTTPException(status_code=404, detail="Lezione non trovata.") from error
         except (LessonStateError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @application.post(
+        "/api/lessons/{lesson_id}/discard", response_model=DiscardedLesson
+    )
+    def discard_lesson(lesson_id: UUID) -> DiscardedLesson:
+        try:
+            return service.discard_lesson(str(lesson_id))
+        except LessonNotFound as error:
+            raise HTTPException(status_code=404, detail="Lezione non trovata.") from error
+        except LessonStateError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @application.get("/api/history", response_model=list[HistoryItem])
+    def get_history() -> list[HistoryItem]:
+        return service.history()
+
+    @application.get(
+        "/api/lessons/{lesson_id}/result", response_model=CompletedLesson
+    )
+    def get_result(lesson_id: UUID) -> CompletedLesson:
+        try:
+            return service.get_result(str(lesson_id))
+        except LessonNotFound as error:
+            raise HTTPException(status_code=404, detail="Lezione non trovata.") from error
+        except LessonStateError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
     application.state.tutor_service = service

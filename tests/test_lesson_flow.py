@@ -5,7 +5,7 @@ import pytest
 
 from app.curriculum import load_sample_lesson
 from app.main import create_app
-from app.service import GenerationInProgress
+from app.service import GenerationInProgress, LessonStateError
 
 
 def test_start_saves_then_resumes_and_summary_uses_curriculum_total(tmp_path) -> None:
@@ -56,6 +56,9 @@ def test_lesson_routes_are_exposed(tmp_path) -> None:
         "/api/lessons/start",
         "/api/lessons/{lesson_id}",
         "/api/lessons/{lesson_id}/submit",
+        "/api/lessons/{lesson_id}/discard",
+        "/api/lessons/{lesson_id}/result",
+        "/api/history",
     }
 
 
@@ -85,3 +88,41 @@ def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> No
     assert duplicate == completed
     assert service.summary().completed_units == 1
     assert service.summary().next_unit and service.summary().next_unit.id == "A1-02"
+
+
+def test_discard_preserves_cost_and_does_not_advance(tmp_path) -> None:
+    app = create_app(tmp_path / "tutor.db")
+    service = app.state.tutor_service
+    first = service.start_or_resume()
+    assert first is not None
+
+    discarded = service.discard_lesson(first.id)
+    repeated = service.discard_lesson(first.id)
+    replacement = service.start_or_resume()
+
+    assert repeated == discarded
+    assert discarded.cost.status == "known"
+    assert discarded.cost.known_usd == 0
+    assert replacement is not None
+    assert replacement.id != first.id
+    assert replacement.unit.id == first.unit.id
+    with pytest.raises(LessonStateError):
+        service.submit_lesson(first.id, {})
+
+
+def test_history_reopens_completed_results_and_rejects_completed_discard(tmp_path) -> None:
+    app = create_app(tmp_path / "tutor.db")
+    service = app.state.tutor_service
+    lesson = service.start_or_resume()
+    assert lesson is not None
+    private_lesson = load_sample_lesson()
+    answers = {
+        exercise.id: exercise.correct_option for exercise in private_lesson.exercises
+    }
+    completed = service.submit_lesson(lesson.id, answers)
+
+    assert service.get_result(lesson.id) == completed
+    assert service.history()[0].status == "completed"
+    assert service.history()[0].correct_answers == 6
+    with pytest.raises(LessonStateError):
+        service.discard_lesson(lesson.id)

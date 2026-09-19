@@ -128,6 +128,30 @@ class CompletedLesson(Model):
     completed_at: NonEmptyText
 
 
+class CostSummary(Model):
+    status: Literal["known", "partial", "unavailable"]
+    known_usd: float | None = Field(default=None, ge=0)
+
+
+class DiscardedLesson(Model):
+    id: NonEmptyText
+    status: Literal["discarded"] = "discarded"
+    unit: CurriculumUnit
+    discarded_at: NonEmptyText
+    cost: CostSummary
+
+
+class HistoryItem(Model):
+    id: NonEmptyText
+    unit: CurriculumUnit
+    status: Literal["completed", "discarded"]
+    correct_answers: int | None = Field(default=None, ge=0, le=6)
+    percentage: int | None = Field(default=None, ge=0, le=100)
+    created_at: NonEmptyText
+    finished_at: NonEmptyText
+    cost: CostSummary
+
+
 class AttemptResult(Model):
     unit_id: NonEmptyText
     correct_answers: int = Field(ge=0, le=6)

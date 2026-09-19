@@ -11,7 +11,10 @@ from app.grading import grade_lesson
 from app.models import (
     AttemptResult,
     CompletedLesson,
+    CostSummary,
     CurriculumUnit,
+    DiscardedLesson,
+    HistoryItem,
     LearningSummary,
     LessonContent,
     LessonSession,
@@ -180,6 +183,68 @@ class TutorService:
             ).fetchone()
             return self._completed_lesson(completed_row, content, answers)
 
+    def discard_lesson(self, lesson_id: str) -> DiscardedLesson:
+        with connect(self.database_path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
+            ).fetchone()
+            if row is None:
+                raise LessonNotFound
+            if row["status"] == "completed":
+                raise LessonStateError("Una lezione completata non può essere scartata.")
+            if row["status"] == "active":
+                connection.execute(
+                    """UPDATE lessons SET status = 'discarded', discarded_at = ?
+                       WHERE id = ?""",
+                    (utc_now(), lesson_id),
+                )
+                row = connection.execute(
+                    "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
+                ).fetchone()
+            return DiscardedLesson(
+                id=row["id"],
+                unit=self._unit(row["unit_id"]),
+                discarded_at=row["discarded_at"],
+                cost=self._cost(connection, lesson_id),
+            )
+
+    def history(self) -> list[HistoryItem]:
+        with connect(self.database_path) as connection:
+            rows = connection.execute(
+                """SELECT * FROM lessons WHERE status IN ('completed', 'discarded')
+                   ORDER BY COALESCE(completed_at, discarded_at) DESC"""
+            ).fetchall()
+            return [
+                HistoryItem(
+                    id=row["id"],
+                    unit=self._unit(row["unit_id"]),
+                    status=row["status"],
+                    correct_answers=row["correct_answers"],
+                    percentage=(
+                        round(row["correct_answers"] / 6 * 100)
+                        if row["correct_answers"] is not None
+                        else None
+                    ),
+                    created_at=row["created_at"],
+                    finished_at=row["completed_at"] or row["discarded_at"],
+                    cost=self._cost(connection, row["id"]),
+                )
+                for row in rows
+            ]
+
+    def get_result(self, lesson_id: str) -> CompletedLesson:
+        with connect(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
+            ).fetchone()
+        if row is None:
+            raise LessonNotFound
+        if row["status"] != "completed":
+            raise LessonStateError("Il risultato è disponibile solo dopo l'invio.")
+        content = LessonContent.model_validate_json(row["content_json"])
+        return self._completed_lesson(row, content, json.loads(row["answers_json"]))
+
     @staticmethod
     def _attempts(connection: sqlite3.Connection) -> list[AttemptResult]:
         rows = connection.execute(
@@ -190,7 +255,7 @@ class TutorService:
 
     def _row_to_session(self, row: sqlite3.Row) -> LessonSession:
         content = LessonContent.model_validate_json(row["content_json"])
-        unit = next(unit for unit in self.curriculum if unit.id == row["unit_id"])
+        unit = self._unit(row["unit_id"])
         return LessonSession(
             id=row["id"],
             status=row["status"],
@@ -205,10 +270,28 @@ class TutorService:
         content: LessonContent,
         answers: dict[str, int],
     ) -> CompletedLesson:
-        unit = next(unit for unit in self.curriculum if unit.id == row["unit_id"])
+        unit = self._unit(row["unit_id"])
         return CompletedLesson(
             id=row["id"],
             unit=unit,
             result=grade_lesson(content, answers),
             completed_at=row["completed_at"],
+        )
+
+    def _unit(self, unit_id: str) -> CurriculumUnit:
+        return next(unit for unit in self.curriculum if unit.id == unit_id)
+
+    @staticmethod
+    def _cost(connection: sqlite3.Connection, lesson_id: str) -> CostSummary:
+        row = connection.execute(
+            """SELECT COUNT(*) AS calls, COUNT(cost_usd) AS known_calls,
+                      SUM(cost_usd) AS known_usd
+               FROM generation_calls WHERE lesson_id = ?""",
+            (lesson_id,),
+        ).fetchone()
+        if row["known_calls"] == 0:
+            return CostSummary(status="unavailable")
+        return CostSummary(
+            status="partial" if row["known_calls"] < row["calls"] else "known",
+            known_usd=row["known_usd"],
         )
