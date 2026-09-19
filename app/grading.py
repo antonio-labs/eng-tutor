@@ -26,6 +26,7 @@ def grade_lesson(lesson: LessonContent, answers: Mapping[str, int]) -> LessonRes
             AnswerResult(
                 exercise_id=exercise.id,
                 selected_option=selected,
+                selected_answer=exercise.options[selected],
                 correct_option=exercise.correct_option,
                 solution=exercise.options[exercise.correct_option],
                 rationale=exercise.rationale,

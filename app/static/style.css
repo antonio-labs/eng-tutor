@@ -130,6 +130,10 @@ input:focus-visible {
   padding: clamp(2rem, 5vw, 4.5rem) 0 5rem;
 }
 
+#app:focus {
+  outline: none;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr);

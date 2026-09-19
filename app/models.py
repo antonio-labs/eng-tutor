@@ -102,6 +102,7 @@ class LearningSummary(Model):
 class AnswerResult(Model):
     exercise_id: NonEmptyText
     selected_option: OptionIndex
+    selected_answer: NonEmptyText
     correct_option: OptionIndex
     solution: NonEmptyText
     rationale: NonEmptyText

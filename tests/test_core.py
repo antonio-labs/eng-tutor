@@ -76,6 +76,7 @@ def test_grading_uses_correct_count_for_threshold(
     assert result.correct_answers == correct
     assert result.percentage == percentage
     assert result.passed is passed
+    assert all(answer.selected_answer for answer in result.answers)
     assert all(answer.solution and answer.rationale for answer in result.answers)
 
 

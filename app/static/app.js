@@ -355,7 +355,7 @@ function answerReview(answer, index) {
   const details = document.createElement("dl");
   details.append(
     element("dt", "", "Risposta"),
-    element("dd", "", String(answer.selected_option + 1)),
+    element("dd", "", answer.selected_answer),
     element("dt", "", "Soluzione"),
     element("dd", "", answer.solution),
     element("dt", "", "Perché"),

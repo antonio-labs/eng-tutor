@@ -1,6 +1,11 @@
+import json
 from pathlib import Path
+from uuid import uuid4
 
+from app.curriculum import load_curriculum, load_sample_lesson
+from app.database import connect
 from app.main import create_app
+from app.service import utc_now
 
 
 STATIC_DIR = Path(__file__).parents[1] / "app" / "static"
@@ -22,3 +27,33 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
     assert "button(\"Riprova\"" in javascript
     assert "innerHTML" not in javascript
     assert "—" not in html + javascript
+
+
+def test_separate_database_can_render_completed_curriculum_state(tmp_path) -> None:
+    database_path = tmp_path / "completed-curriculum.db"
+    service = create_app(database_path).state.tutor_service
+    lesson = load_sample_lesson()
+    answers = {
+        exercise.id: exercise.correct_option for exercise in lesson.exercises
+    }
+    with connect(database_path) as connection:
+        for unit in load_curriculum():
+            content = lesson.model_copy(update={"unit_id": unit.id})
+            connection.execute(
+                """INSERT INTO lessons
+                   (id, unit_id, content_json, status, answers_json,
+                    correct_answers, created_at, completed_at)
+                   VALUES (?, ?, ?, 'completed', ?, 6, ?, ?)""",
+                (
+                    str(uuid4()),
+                    unit.id,
+                    content.model_dump_json(),
+                    json.dumps(answers),
+                    utc_now(),
+                    utc_now(),
+                ),
+            )
+
+    summary = service.summary()
+    assert summary.path_completed is True
+    assert summary.completed_units == summary.total_units == 36
