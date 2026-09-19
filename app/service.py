@@ -10,8 +10,11 @@ from app.curriculum import load_curriculum, load_sample_lesson, next_unit
 from app.database import connect, initialize_database
 from app.grading import grade_lesson
 from app.generation import (
+    CallMetrics,
     GenerationFailed,
+    GenerationOutput,
     GenerationUnavailable,
+    InvalidGenerationResponse,
     classify_generation_error,
 )
 from app.models import (
@@ -20,6 +23,7 @@ from app.models import (
     CostSummary,
     CurriculumUnit,
     DiscardedLesson,
+    FailedGeneration,
     HistoryItem,
     LearningSummary,
     LessonContent,
@@ -125,8 +129,11 @@ class TutorService:
                 raise GenerationInProgress from error
 
         generated = False
+        metrics = CallMetrics()
         try:
-            content, call_id = self._generate_content(unit, group_id, call_id)
+            content, call_id, metrics = self._generate_content(
+                unit, group_id, call_id
+            )
             generated = True
             lesson_id = str(uuid4())
             with connect(self.database_path) as connection:
@@ -150,12 +157,21 @@ class TutorService:
                 connection.execute(
                     """UPDATE generation_calls
                        SET outcome = 'succeeded',
-                           cost_usd = CASE WHEN provider = 'mock' THEN 0 END,
+                           prompt_tokens = ?, completion_tokens = ?, total_tokens = ?,
+                           cost_usd = CASE WHEN provider = 'mock' THEN 0 ELSE ? END,
                            pricing_reference = CASE WHEN provider = 'mock'
-                               THEN 'simulated: no external call' END,
+                               THEN 'simulated: no external call' ELSE ? END,
                            finished_at = ?
                        WHERE id = ?""",
-                    (utc_now(), call_id),
+                    (
+                        metrics.prompt_tokens,
+                        metrics.completion_tokens,
+                        metrics.total_tokens,
+                        metrics.cost_usd,
+                        metrics.pricing_reference,
+                        utc_now(),
+                        call_id,
+                    ),
                 )
                 row = connection.execute(
                     "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
@@ -163,12 +179,14 @@ class TutorService:
             return self._row_to_session(row)
         except Exception:
             if generated:
-                self._finish_generation_call(call_id, "succeeded")
+                self._finish_generation_call(
+                    call_id, "succeeded", metrics=metrics
+                )
             raise
 
     def _generate_content(
         self, unit: CurriculumUnit, group_id: str, call_id: str
-    ) -> tuple[LessonContent, str]:
+    ) -> tuple[LessonContent, str, CallMetrics]:
         generate_once = getattr(self.generator, "generate_once", None)
         max_calls = MAX_GENERATION_CALLS if callable(generate_once) else 1
         deadline = monotonic() + GENERATION_DEADLINE_SECONDS
@@ -178,16 +196,31 @@ class TutorService:
             try:
                 if remaining <= 0:
                     raise TimeoutError
-                content = (
+                output = (
                     generate_once(unit, timeout=remaining)
                     if callable(generate_once)
                     else self.generator(unit)
                 )
-                return content, call_id
+                if isinstance(output, GenerationOutput):
+                    return output.content, call_id, output.metrics
+                return output, call_id, CallMetrics()
             except Exception as error:
-                disposition = classify_generation_error(error)
+                cause = (
+                    error.cause
+                    if isinstance(error, InvalidGenerationResponse)
+                    else error
+                )
+                metrics = (
+                    error.metrics
+                    if isinstance(error, InvalidGenerationResponse)
+                    else CallMetrics()
+                )
+                disposition = classify_generation_error(cause)
                 self._finish_generation_call(
-                    call_id, disposition.outcome, type(error).__name__
+                    call_id,
+                    disposition.outcome,
+                    type(cause).__name__,
+                    metrics,
                 )
                 can_retry = (
                     disposition.retryable
@@ -220,15 +253,57 @@ class TutorService:
         return call_id
 
     def _finish_generation_call(
-        self, call_id: str, outcome: str, error_message: str | None = None
+        self,
+        call_id: str,
+        outcome: str,
+        error_message: str | None = None,
+        metrics: CallMetrics = CallMetrics(),
     ) -> None:
         with connect(self.database_path) as connection:
             connection.execute(
                 """UPDATE generation_calls
-                   SET outcome = ?, error_message = ?, finished_at = ?
+                   SET outcome = ?, error_message = ?, finished_at = ?,
+                       prompt_tokens = ?, completion_tokens = ?, total_tokens = ?,
+                       cost_usd = ?, pricing_reference = ?
                    WHERE id = ? AND outcome = 'in_progress'""",
-                (outcome, error_message, utc_now(), call_id),
+                (
+                    outcome,
+                    error_message,
+                    utc_now(),
+                    metrics.prompt_tokens,
+                    metrics.completion_tokens,
+                    metrics.total_tokens,
+                    metrics.cost_usd,
+                    metrics.pricing_reference,
+                    call_id,
+                ),
             )
+
+    def failed_generations(self) -> list[FailedGeneration]:
+        with connect(self.database_path) as connection:
+            rows = connection.execute(
+                """SELECT generation_group_id, MIN(created_at) AS created_at,
+                          MAX(provider) AS provider, MAX(model) AS model,
+                          GROUP_CONCAT(outcome) AS outcomes,
+                          COUNT(*) AS calls, COUNT(cost_usd) AS known_calls,
+                          SUM(cost_usd) AS known_usd
+                   FROM generation_calls
+                   WHERE lesson_id IS NULL AND outcome != 'in_progress'
+                   GROUP BY generation_group_id
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+        return [
+            FailedGeneration(
+                generation_group_id=row["generation_group_id"],
+                created_at=row["created_at"],
+                provider=row["provider"] or "non disponibile",
+                model=row["model"] or "non disponibile",
+                calls=row["calls"],
+                outcomes=row["outcomes"].split(","),
+                cost=self._cost_from_counts(row),
+            )
+            for row in rows
+        ]
 
     def get_lesson(self, lesson_id: str) -> LessonSession | None:
         with connect(self.database_path) as connection:
@@ -384,6 +459,10 @@ class TutorService:
                FROM generation_calls WHERE lesson_id = ?""",
             (lesson_id,),
         ).fetchone()
+        return TutorService._cost_from_counts(row)
+
+    @staticmethod
+    def _cost_from_counts(row: sqlite3.Row) -> CostSummary:
         if row["known_calls"] == 0:
             return CostSummary(status="unavailable")
         return CostSummary(

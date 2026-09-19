@@ -180,11 +180,44 @@ function buildHistory(history) {
   return section;
 }
 
+function buildFailedGenerations(generations) {
+  if (generations.length === 0) return null;
+
+  const section = element("section", "section failed-generations");
+  const heading = element("div", "section-heading");
+  heading.append(
+    element("h2", "", "Generazioni senza lezione"),
+    element(
+      "p",
+      "lede",
+      "Tentativi conclusi senza creare una lezione. I costi noti restano separati dallo storico.",
+    ),
+  );
+  const list = element("ul", "generation-list");
+  for (const generation of generations) {
+    const item = element("li", "generation-item");
+    item.append(
+      element("p", "generation-model", generation.model),
+      element(
+        "p",
+        "generation-meta",
+        `${dateLabel(generation.created_at)} · ${generation.calls} ${generation.calls === 1 ? "chiamata" : "chiamate"}`,
+      ),
+      element("p", "generation-meta", `Esiti: ${generation.outcomes.join(", ")}`),
+      element("p", "generation-cost", costLabel(generation.cost)),
+    );
+    list.append(item);
+  }
+  section.append(heading, list);
+  return section;
+}
+
 async function renderHome() {
   showLoading();
-  const [summary, history] = await Promise.all([
+  const [summary, history, failedGenerations] = await Promise.all([
     request("/api/summary"),
     request("/api/history"),
+    request("/api/generations/failed"),
   ]);
   const hero = element("section", "hero");
   const copy = element("div");
@@ -220,7 +253,10 @@ async function renderHome() {
     element("p", "progress-label", "unità superate"),
   );
   hero.append(copy, progress);
-  app.replaceChildren(hero, buildHistory(history));
+  const sections = [hero, buildHistory(history)];
+  const failed = buildFailedGenerations(failedGenerations);
+  if (failed) sections.push(failed);
+  app.replaceChildren(...sections);
   app.focus();
 }
 

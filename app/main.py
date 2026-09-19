@@ -14,6 +14,7 @@ from app.models import (
     CompletedLesson,
     CurriculumUnit,
     DiscardedLesson,
+    FailedGeneration,
     HistoryItem,
     LearningSummary,
     LessonContent,
@@ -132,6 +133,10 @@ def create_app(
     @application.get("/api/history", response_model=list[HistoryItem])
     def get_history() -> list[HistoryItem]:
         return service.history()
+
+    @application.get("/api/generations/failed", response_model=list[FailedGeneration])
+    def get_failed_generations() -> list[FailedGeneration]:
+        return service.failed_generations()
 
     @application.get(
         "/api/lessons/{lesson_id}/result", response_model=CompletedLesson

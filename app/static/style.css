@@ -314,6 +314,46 @@ h3 {
   background: var(--surface);
 }
 
+.failed-generations {
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.generation-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.generation-item {
+  padding: 1.2rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.generation-item p {
+  margin: 0;
+}
+
+.generation-model,
+.generation-cost {
+  font-weight: 700;
+}
+
+.generation-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.generation-item p + p {
+  margin-top: 0.45rem;
+}
+
 .lesson-header,
 .result-header {
   display: grid;

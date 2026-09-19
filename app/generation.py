@@ -1,9 +1,10 @@
 import json
 import os
 from dataclasses import dataclass
+from importlib.metadata import version
 from typing import Any
 
-from litellm import completion, supports_response_schema
+from litellm import completion, completion_cost, supports_response_schema
 from litellm.exceptions import (
     APIConnectionError,
     APIError,
@@ -36,6 +37,28 @@ class ErrorDisposition:
     outcome: str
     retryable: bool
     user_message: str
+
+
+@dataclass(frozen=True)
+class CallMetrics:
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    cost_usd: float | None = None
+    pricing_reference: str | None = None
+
+
+@dataclass(frozen=True)
+class GenerationOutput:
+    content: LessonContent
+    metrics: CallMetrics
+
+
+class InvalidGenerationResponse(Exception):
+    def __init__(self, cause: Exception, metrics: CallMetrics) -> None:
+        super().__init__(str(cause))
+        self.cause = cause
+        self.metrics = metrics
 
 
 def classify_generation_error(error: Exception) -> ErrorDisposition:
@@ -118,9 +141,9 @@ class LiteLLMGenerator:
         return cls(LLMConfig.from_env())
 
     def __call__(self, unit: CurriculumUnit) -> LessonContent:
-        return self.generate_once(unit, timeout=60)
+        return self.generate_once(unit, timeout=60).content
 
-    def generate_once(self, unit: CurriculumUnit, timeout: float) -> LessonContent:
+    def generate_once(self, unit: CurriculumUnit, timeout: float) -> GenerationOutput:
         prompt = {
             "level": "A1",
             "unit": {
@@ -163,4 +186,43 @@ class LiteLLMGenerator:
         if self.config.api_base:
             kwargs["api_base"] = self.config.api_base
         response = completion(**kwargs)
-        return LessonContent.model_validate_json(response.choices[0].message.content)
+        metrics = self._metrics(response)
+        try:
+            content = LessonContent.model_validate_json(
+                response.choices[0].message.content
+            )
+        except ValidationError as error:
+            raise InvalidGenerationResponse(error, metrics) from error
+        return GenerationOutput(content=content, metrics=metrics)
+
+    @staticmethod
+    def _metrics(response: Any) -> CallMetrics:
+        usage = getattr(response, "usage", None)
+
+        def usage_value(name: str) -> int | None:
+            value = (
+                usage.get(name)
+                if isinstance(usage, dict)
+                else getattr(usage, name, None)
+            )
+            return int(value) if value is not None else None
+
+        hidden = getattr(response, "_hidden_params", None) or {}
+        cost = hidden.get("response_cost")
+        if cost is None:
+            try:
+                cost = completion_cost(completion_response=response)
+            except Exception:
+                cost = None
+        cost_value = float(cost) if cost is not None else None
+        return CallMetrics(
+            prompt_tokens=usage_value("prompt_tokens"),
+            completion_tokens=usage_value("completion_tokens"),
+            total_tokens=usage_value("total_tokens"),
+            cost_usd=cost_value,
+            pricing_reference=(
+                f"LiteLLM {version('litellm')} bundled/community model cost map"
+                if cost_value is not None
+                else None
+            ),
+        )

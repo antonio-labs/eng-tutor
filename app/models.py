@@ -156,6 +156,16 @@ class HistoryItem(Model):
     cost: CostSummary
 
 
+class FailedGeneration(Model):
+    generation_group_id: NonEmptyText
+    created_at: NonEmptyText
+    provider: NonEmptyText
+    model: NonEmptyText
+    calls: int = Field(gt=0)
+    outcomes: list[NonEmptyText]
+    cost: CostSummary
+
+
 class AttemptResult(Model):
     unit_id: NonEmptyText
     correct_answers: int = Field(ge=0, le=6)

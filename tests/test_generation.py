@@ -8,8 +8,11 @@ from pydantic import ValidationError
 from app.curriculum import load_curriculum, load_sample_lesson
 from app.database import connect, initialize_database
 from app.generation import (
+    CallMetrics,
     GenerationFailed,
+    GenerationOutput,
     GenerationUnavailable,
+    InvalidGenerationResponse,
     LLMConfig,
     LiteLLMGenerator,
 )
@@ -33,6 +36,11 @@ class SequenceGenerator:
         effect = next(self.effects)
         if isinstance(effect, Exception):
             raise effect
+        if isinstance(effect, GenerationOutput):
+            return GenerationOutput(
+                content=effect.content.model_copy(update={"unit_id": unit.id}),
+                metrics=effect.metrics,
+            )
         return effect.model_copy(update={"unit_id": unit.id})
 
 
@@ -106,6 +114,38 @@ def test_generation_sends_only_lesson_context_and_validates_json(
     assert sent["unit"] == unit.model_dump()
     assert "history" not in captured["messages"][0]["content"].lower()
     assert all(exercise.rationale for exercise in lesson.exercises)
+
+
+def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> None:
+    unit = load_curriculum()[0]
+    response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=load_sample_lesson().model_dump_json())
+            )
+        ],
+        usage=SimpleNamespace(
+            prompt_tokens=120,
+            completion_tokens=80,
+            total_tokens=200,
+        ),
+        _hidden_params={"response_cost": 0.0042},
+    )
+    monkeypatch.setattr("app.generation.completion", lambda **_: response)
+    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: True)
+
+    output = LiteLLMGenerator(
+        LLMConfig("provider/model", "test-key")
+    ).generate_once(unit, timeout=30)
+
+    assert output.metrics == CallMetrics(
+        prompt_tokens=120,
+        completion_tokens=80,
+        total_tokens=200,
+        cost_usd=0.0042,
+        pricing_reference=output.metrics.pricing_reference,
+    )
+    assert output.metrics.pricing_reference.startswith("LiteLLM ")
 
 
 def test_invalid_output_retries_once_and_records_both_calls(tmp_path) -> None:
@@ -202,3 +242,67 @@ def test_interrupted_in_progress_call_becomes_unknown_on_restart(tmp_path) -> No
         "prompt_tokens": None,
         "cost_usd": None,
     }
+
+
+def test_attempt_costs_are_aggregated_as_partial_for_discarded_lesson(tmp_path) -> None:
+    try:
+        LessonContent.model_validate({})
+    except ValidationError as validation_error:
+        invalid = InvalidGenerationResponse(
+            validation_error,
+            CallMetrics(10, 5, 15, 0.01, "test price A"),
+        )
+    valid = GenerationOutput(
+        load_sample_lesson(),
+        CallMetrics(20, 10, 30, None, None),
+    )
+    service = TutorService(tmp_path / "tutor.db", SequenceGenerator([invalid, valid]))
+
+    lesson = service.start_or_resume()
+    discarded = service.discard_lesson(lesson.id)
+
+    assert discarded.cost.status == "partial"
+    assert discarded.cost.known_usd == pytest.approx(0.01)
+    with connect(service.database_path) as connection:
+        calls = connection.execute(
+            """SELECT prompt_tokens, completion_tokens, total_tokens, cost_usd,
+                      pricing_reference
+               FROM generation_calls ORDER BY created_at"""
+        ).fetchall()
+    assert dict(calls[0]) == {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15,
+        "cost_usd": 0.01,
+        "pricing_reference": "test price A",
+    }
+    assert calls[1]["prompt_tokens"] == 20
+    assert calls[1]["cost_usd"] is None
+
+
+def test_failed_generation_costs_remain_separate_from_lesson_history(tmp_path) -> None:
+    try:
+        LessonContent.model_validate({})
+    except ValidationError as validation_error:
+        effects = [
+            InvalidGenerationResponse(
+                validation_error,
+                CallMetrics(10, 5, 15, 0.01, "test price A"),
+            ),
+            InvalidGenerationResponse(
+                validation_error,
+                CallMetrics(12, 6, 18, 0.02, "test price B"),
+            ),
+        ]
+    service = TutorService(tmp_path / "tutor.db", SequenceGenerator(effects))
+
+    with pytest.raises(GenerationFailed):
+        service.start_or_resume()
+
+    assert service.history() == []
+    failed = service.failed_generations()
+    assert len(failed) == 1
+    assert failed[0].calls == 2
+    assert failed[0].outcomes == ["invalid", "invalid"]
+    assert failed[0].cost.status == "known"
+    assert failed[0].cost.known_usd == pytest.approx(0.03)
