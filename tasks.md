@@ -21,7 +21,7 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 - [x] **2.2 — Inizio e ripresa.** Esporre l'avvio/lettura di una lezione e il riepilogo del percorso, usando inizialmente un generatore simulato solo per sviluppo e test. Salvare prima di presentare; riutilizzare la lezione attiva. Impedire che avvii ravvicinati creino due lezioni attive o due generazioni concorrenti.
 - [x] **2.3 — Invio e risultato.** Validare ID, completezza e opzioni; correggere contro il contenuto salvato. Salvare risposte e completamento insieme, rendere il risultato immutabile e restituire lo stesso risultato a invii duplicati.
 - [x] **2.4 — Scarto e storico.** Aggiungere scarto prima dell'invio, elenco essenziale delle lezioni completate/scartate e riapertura dei risultati. Conservare i costi dello scarto, non avanzare e non rigenerare automaticamente. Rifiutare invii su lezioni scartate e scarti di lezioni completate.
-- [ ] **2.5 — Verifica della persistenza.** Con un database temporaneo, verificare ripresa dopo riavvio, risultati stabili, scarto e nuovo avvio, errore di salvataggio recuperabile e invio ripetuto dopo perdita della risposta del server. Controllare che nessuna lettura precedente all'invio esponga soluzioni o motivazioni.
+- [x] **2.5 — Verifica della persistenza.** Con un database temporaneo, verificare ripresa dopo riavvio, risultati stabili, scarto e nuovo avvio, errore di salvataggio recuperabile e invio ripetuto dopo perdita della risposta del server. Controllare che nessuna lettura precedente all'invio esponga soluzioni o motivazioni.
 
 **Risultato verificabile:** il ciclo completo funziona sulle API con dati di esempio e sopravvive al riavvio; lo storico conserva tentativi e costi senza falsi avanzamenti.
 
