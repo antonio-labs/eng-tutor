@@ -3,12 +3,17 @@ import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from time import monotonic
 from uuid import uuid4
 
 from app.curriculum import load_curriculum, load_sample_lesson, next_unit
 from app.database import connect, initialize_database
 from app.grading import grade_lesson
-from app.generation import GenerationUnavailable
+from app.generation import (
+    GenerationFailed,
+    GenerationUnavailable,
+    classify_generation_error,
+)
 from app.models import (
     AttemptResult,
     CompletedLesson,
@@ -32,6 +37,10 @@ class LessonNotFound(Exception):
 
 class LessonStateError(Exception):
     pass
+
+
+MAX_GENERATION_CALLS = 2
+GENERATION_DEADLINE_SECONDS = 60
 
 
 def utc_now() -> str:
@@ -60,6 +69,13 @@ class TutorService:
         self.generator = generator
         self.curriculum = load_curriculum()
         initialize_database(database_path)
+        with connect(database_path) as connection:
+            connection.execute(
+                """UPDATE generation_calls
+                   SET outcome = 'unknown', finished_at = ?
+                   WHERE outcome = 'in_progress'""",
+                (utc_now(),),
+            )
 
     def summary(self) -> LearningSummary:
         with connect(self.database_path) as connection:
@@ -102,22 +118,16 @@ class TutorService:
                     "Configura LLM_MODEL e LLM_API_KEY per creare una nuova lezione."
                 )
 
-            call_id = str(uuid4())
             group_id = str(uuid4())
-            provider = getattr(self.generator, "provider", "mock")
-            model = getattr(self.generator, "model", "sample-lesson")
             try:
-                connection.execute(
-                    """INSERT INTO generation_calls
-                       (id, generation_group_id, provider, model, outcome, created_at)
-                       VALUES (?, ?, ?, ?, 'in_progress', ?)""",
-                    (call_id, group_id, provider, model, utc_now()),
-                )
+                call_id = self._insert_generation_call(connection, group_id)
             except sqlite3.IntegrityError as error:
                 raise GenerationInProgress from error
 
+        generated = False
         try:
-            content = self.generator(unit)
+            content, call_id = self._generate_content(unit, group_id, call_id)
+            generated = True
             lesson_id = str(uuid4())
             with connect(self.database_path) as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -134,26 +144,91 @@ class TutorService:
                 )
                 connection.execute(
                     """UPDATE generation_calls
-                       SET lesson_id = ?, outcome = 'succeeded',
+                       SET lesson_id = ? WHERE generation_group_id = ?""",
+                    (lesson_id, group_id),
+                )
+                connection.execute(
+                    """UPDATE generation_calls
+                       SET outcome = 'succeeded',
                            cost_usd = CASE WHEN provider = 'mock' THEN 0 END,
                            pricing_reference = CASE WHEN provider = 'mock'
                                THEN 'simulated: no external call' END,
                            finished_at = ?
                        WHERE id = ?""",
-                    (lesson_id, utc_now(), call_id),
+                    (utc_now(), call_id),
                 )
                 row = connection.execute(
                     "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
                 ).fetchone()
             return self._row_to_session(row)
         except Exception:
-            with connect(self.database_path) as connection:
-                connection.execute(
-                    """UPDATE generation_calls
-                       SET outcome = 'error', finished_at = ? WHERE id = ?""",
-                    (utc_now(), call_id),
-                )
+            if generated:
+                self._finish_generation_call(call_id, "succeeded")
             raise
+
+    def _generate_content(
+        self, unit: CurriculumUnit, group_id: str, call_id: str
+    ) -> tuple[LessonContent, str]:
+        generate_once = getattr(self.generator, "generate_once", None)
+        max_calls = MAX_GENERATION_CALLS if callable(generate_once) else 1
+        deadline = monotonic() + GENERATION_DEADLINE_SECONDS
+
+        for attempt in range(max_calls):
+            remaining = deadline - monotonic()
+            try:
+                if remaining <= 0:
+                    raise TimeoutError
+                content = (
+                    generate_once(unit, timeout=remaining)
+                    if callable(generate_once)
+                    else self.generator(unit)
+                )
+                return content, call_id
+            except Exception as error:
+                disposition = classify_generation_error(error)
+                self._finish_generation_call(
+                    call_id, disposition.outcome, type(error).__name__
+                )
+                can_retry = (
+                    disposition.retryable
+                    and attempt + 1 < max_calls
+                    and monotonic() < deadline
+                )
+                if not can_retry:
+                    raise GenerationFailed(disposition.user_message) from error
+                with connect(self.database_path) as connection:
+                    call_id = self._insert_generation_call(connection, group_id)
+
+        raise AssertionError("generation loop must return or raise")
+
+    def _insert_generation_call(
+        self, connection: sqlite3.Connection, group_id: str
+    ) -> str:
+        call_id = str(uuid4())
+        connection.execute(
+            """INSERT INTO generation_calls
+               (id, generation_group_id, provider, model, outcome, created_at)
+               VALUES (?, ?, ?, ?, 'in_progress', ?)""",
+            (
+                call_id,
+                group_id,
+                getattr(self.generator, "provider", "mock"),
+                getattr(self.generator, "model", "sample-lesson"),
+                utc_now(),
+            ),
+        )
+        return call_id
+
+    def _finish_generation_call(
+        self, call_id: str, outcome: str, error_message: str | None = None
+    ) -> None:
+        with connect(self.database_path) as connection:
+            connection.execute(
+                """UPDATE generation_calls
+                   SET outcome = ?, error_message = ?, finished_at = ?
+                   WHERE id = ? AND outcome = 'in_progress'""",
+                (outcome, error_message, utc_now(), call_id),
+            )
 
     def get_lesson(self, lesson_id: str) -> LessonSession | None:
         with connect(self.database_path) as connection:

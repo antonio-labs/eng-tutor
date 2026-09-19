@@ -50,7 +50,7 @@ def test_database_save_error_leaves_generation_recoverable(tmp_path) -> None:
         assert connection.execute("SELECT COUNT(*) FROM lessons").fetchone()[0] == 0
         assert connection.execute(
             "SELECT outcome FROM generation_calls"
-        ).fetchone()[0] == "error"
+        ).fetchone()[0] == "succeeded"
         connection.execute("DROP TRIGGER fail_lesson_save")
 
     assert service.start_or_resume() is not None

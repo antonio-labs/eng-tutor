@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.curriculum import load_curriculum
-from app.generation import GenerationUnavailable, LiteLLMGenerator
+from app.generation import GenerationFailed, GenerationUnavailable, LiteLLMGenerator
 from app.models import (
     AnswerSubmission,
     CompletedLesson,
@@ -84,6 +84,11 @@ def create_app(
                 detail="La generazione di una lezione è già in corso.",
             ) from error
         except GenerationUnavailable as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(error),
+            ) from error
+        except GenerationFailed as error:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(error),
