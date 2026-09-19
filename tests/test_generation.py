@@ -148,6 +148,89 @@ def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> No
     assert output.metrics.pricing_reference.startswith("LiteLLM ")
 
 
+def test_malformed_json_then_valid_response_records_each_mocked_call(
+    tmp_path, monkeypatch
+) -> None:
+    responses = iter(
+        [
+            SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="{invalid"))],
+                usage={
+                    "prompt_tokens": 10,
+                    "completion_tokens": 2,
+                    "total_tokens": 12,
+                },
+                _hidden_params={"response_cost": 0.001},
+            ),
+            SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=load_sample_lesson().model_dump_json()
+                        )
+                    )
+                ],
+                usage={
+                    "prompt_tokens": 20,
+                    "completion_tokens": 40,
+                    "total_tokens": 60,
+                },
+                _hidden_params={"response_cost": 0.002},
+            ),
+        ]
+    )
+    calls = 0
+
+    def fake_completion(**_):
+        nonlocal calls
+        calls += 1
+        return next(responses)
+
+    monkeypatch.setattr("app.generation.completion", fake_completion)
+    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: False)
+    service = TutorService(
+        tmp_path / "tutor.db",
+        LiteLLMGenerator(LLMConfig("provider/model", "test-key")),
+    )
+
+    lesson = service.start_or_resume()
+
+    assert lesson is not None
+    assert calls == 2
+    with connect(service.database_path) as connection:
+        attempts = connection.execute(
+            """SELECT outcome, total_tokens, cost_usd
+               FROM generation_calls ORDER BY created_at"""
+        ).fetchall()
+    assert [dict(attempt) for attempt in attempts] == [
+        {"outcome": "invalid", "total_tokens": 12, "cost_usd": 0.001},
+        {"outcome": "succeeded", "total_tokens": 60, "cost_usd": 0.002},
+    ]
+
+
+def test_missing_usage_and_price_are_recorded_as_unavailable(monkeypatch) -> None:
+    response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=load_sample_lesson().model_dump_json())
+            )
+        ],
+        _hidden_params={},
+    )
+    monkeypatch.setattr("app.generation.completion", lambda **_: response)
+    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: True)
+    monkeypatch.setattr(
+        "app.generation.completion_cost",
+        lambda **_: (_ for _ in ()).throw(LookupError("price missing")),
+    )
+
+    output = LiteLLMGenerator(
+        LLMConfig("provider/model", "test-key")
+    ).generate_once(load_curriculum()[0], timeout=30)
+
+    assert output.metrics == CallMetrics()
+
+
 def test_invalid_output_retries_once_and_records_both_calls(tmp_path) -> None:
     try:
         LessonContent.model_validate({})
@@ -306,3 +389,19 @@ def test_failed_generation_costs_remain_separate_from_lesson_history(tmp_path) -
     assert failed[0].outcomes == ["invalid", "invalid"]
     assert failed[0].cost.status == "known"
     assert failed[0].cost.known_usd == pytest.approx(0.03)
+
+
+def test_grading_and_reading_saved_data_do_not_call_generator_again(tmp_path) -> None:
+    generator = SequenceGenerator([load_sample_lesson()])
+    service = TutorService(tmp_path / "tutor.db", generator)
+    lesson = service.start_or_resume()
+    answers = {
+        exercise.id: 0 for exercise in load_sample_lesson().exercises
+    }
+
+    service.submit_lesson(lesson.id, answers)
+    service.get_result(lesson.id)
+    service.history()
+    service.summary()
+
+    assert generator.calls == 1
