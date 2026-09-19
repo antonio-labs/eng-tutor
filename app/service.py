@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -6,8 +7,10 @@ from uuid import uuid4
 
 from app.curriculum import load_curriculum, load_sample_lesson, next_unit
 from app.database import connect, initialize_database
+from app.grading import grade_lesson
 from app.models import (
     AttemptResult,
+    CompletedLesson,
     CurriculumUnit,
     LearningSummary,
     LessonContent,
@@ -16,6 +19,14 @@ from app.models import (
 
 
 class GenerationInProgress(Exception):
+    pass
+
+
+class LessonNotFound(Exception):
+    pass
+
+
+class LessonStateError(Exception):
     pass
 
 
@@ -132,6 +143,43 @@ class TutorService:
             ).fetchone()
         return self._row_to_session(row) if row else None
 
+    def submit_lesson(
+        self, lesson_id: str, answers: dict[str, int]
+    ) -> CompletedLesson:
+        with connect(self.database_path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
+            ).fetchone()
+            if row is None:
+                raise LessonNotFound
+            if row["status"] == "discarded":
+                raise LessonStateError("Una lezione scartata non può essere inviata.")
+
+            content = LessonContent.model_validate_json(row["content_json"])
+            if row["status"] == "completed":
+                saved_answers = json.loads(row["answers_json"])
+                return self._completed_lesson(row, content, saved_answers)
+
+            result = grade_lesson(content, answers)
+            completed_at = utc_now()
+            connection.execute(
+                """UPDATE lessons
+                   SET status = 'completed', answers_json = ?, correct_answers = ?,
+                       completed_at = ?
+                   WHERE id = ? AND status = 'active'""",
+                (
+                    json.dumps(answers, separators=(",", ":"), sort_keys=True),
+                    result.correct_answers,
+                    completed_at,
+                    lesson_id,
+                ),
+            )
+            completed_row = connection.execute(
+                "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
+            ).fetchone()
+            return self._completed_lesson(completed_row, content, answers)
+
     @staticmethod
     def _attempts(connection: sqlite3.Connection) -> list[AttemptResult]:
         rows = connection.execute(
@@ -149,4 +197,18 @@ class TutorService:
             unit=unit,
             content=content.for_browser(),
             created_at=row["created_at"],
+        )
+
+    def _completed_lesson(
+        self,
+        row: sqlite3.Row,
+        content: LessonContent,
+        answers: dict[str, int],
+    ) -> CompletedLesson:
+        unit = next(unit for unit in self.curriculum if unit.id == row["unit_id"])
+        return CompletedLesson(
+            id=row["id"],
+            unit=unit,
+            result=grade_lesson(content, answers),
+            completed_at=row["completed_at"],
         )

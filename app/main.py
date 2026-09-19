@@ -1,17 +1,25 @@
 import os
 from collections.abc import Callable
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, status
 
 from app.curriculum import load_curriculum
 from app.models import (
+    AnswerSubmission,
+    CompletedLesson,
     CurriculumUnit,
     LearningSummary,
     LessonContent,
     LessonSession,
 )
-from app.service import GenerationInProgress, TutorService
+from app.service import (
+    GenerationInProgress,
+    LessonNotFound,
+    LessonStateError,
+    TutorService,
+)
 
 
 curriculum = load_curriculum()
@@ -66,11 +74,22 @@ def create_app(
         return lesson
 
     @application.get("/api/lessons/{lesson_id}", response_model=LessonSession)
-    def get_lesson(lesson_id: str) -> LessonSession:
-        lesson = service.get_lesson(lesson_id)
+    def get_lesson(lesson_id: UUID) -> LessonSession:
+        lesson = service.get_lesson(str(lesson_id))
         if lesson is None:
             raise HTTPException(status_code=404, detail="Lezione non trovata.")
         return lesson
+
+    @application.post(
+        "/api/lessons/{lesson_id}/submit", response_model=CompletedLesson
+    )
+    def submit_lesson(lesson_id: UUID, submission: AnswerSubmission) -> CompletedLesson:
+        try:
+            return service.submit_lesson(str(lesson_id), submission.answers)
+        except LessonNotFound as error:
+            raise HTTPException(status_code=404, detail="Lezione non trovata.") from error
+        except (LessonStateError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     application.state.tutor_service = service
     return application

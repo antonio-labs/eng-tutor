@@ -55,4 +55,33 @@ def test_lesson_routes_are_exposed(tmp_path) -> None:
         "/api/summary",
         "/api/lessons/start",
         "/api/lessons/{lesson_id}",
+        "/api/lessons/{lesson_id}/submit",
     }
+
+
+def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> None:
+    app = create_app(tmp_path / "tutor.db")
+    service = app.state.tutor_service
+    lesson = service.start_or_resume()
+    assert lesson is not None
+    private_lesson = load_sample_lesson()
+    answers = {
+        exercise.id: exercise.correct_option for exercise in private_lesson.exercises
+    }
+
+    with pytest.raises(ValueError):
+        service.submit_lesson(lesson.id, {"q1": 0})
+
+    completed = service.submit_lesson(lesson.id, answers)
+    duplicate = service.submit_lesson(
+        lesson.id,
+        {
+            exercise.id: (exercise.correct_option + 1) % 3
+            for exercise in private_lesson.exercises
+        },
+    )
+
+    assert completed.result.correct_answers == 6
+    assert duplicate == completed
+    assert service.summary().completed_units == 1
+    assert service.summary().next_unit and service.summary().next_unit.id == "A1-02"

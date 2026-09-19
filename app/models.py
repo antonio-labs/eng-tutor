@@ -116,6 +116,18 @@ class LessonResult(Model):
     passed: bool
 
 
+class AnswerSubmission(Model):
+    answers: dict[NonEmptyText, OptionIndex]
+
+
+class CompletedLesson(Model):
+    id: NonEmptyText
+    status: Literal["completed"] = "completed"
+    unit: CurriculumUnit
+    result: LessonResult
+    completed_at: NonEmptyText
+
+
 class AttemptResult(Model):
     unit_id: NonEmptyText
     correct_answers: int = Field(ge=0, le=6)
