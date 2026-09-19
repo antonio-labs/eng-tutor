@@ -8,6 +8,7 @@ from uuid import uuid4
 from app.curriculum import load_curriculum, load_sample_lesson, next_unit
 from app.database import connect, initialize_database
 from app.grading import grade_lesson
+from app.generation import GenerationUnavailable
 from app.models import (
     AttemptResult,
     CompletedLesson,
@@ -53,7 +54,7 @@ class TutorService:
     def __init__(
         self,
         database_path: Path,
-        generator: Callable[[CurriculumUnit], LessonContent] = generate_sample,
+        generator: Callable[[CurriculumUnit], LessonContent] | None,
     ) -> None:
         self.database_path = database_path
         self.generator = generator
@@ -76,6 +77,12 @@ class TutorService:
             next_unit=following,
             active_lesson_id=active["id"] if active else None,
             path_completed=following is None,
+            generation_available=self.generator is not None,
+            generation_unavailable_reason=(
+                None
+                if self.generator is not None
+                else "Configura LLM_MODEL e LLM_API_KEY per creare una nuova lezione."
+            ),
         )
 
     def start_or_resume(self) -> LessonSession | None:
@@ -90,15 +97,21 @@ class TutorService:
             unit = next_unit(self.curriculum, self._attempts(connection))
             if unit is None:
                 return None
+            if self.generator is None:
+                raise GenerationUnavailable(
+                    "Configura LLM_MODEL e LLM_API_KEY per creare una nuova lezione."
+                )
 
             call_id = str(uuid4())
             group_id = str(uuid4())
+            provider = getattr(self.generator, "provider", "mock")
+            model = getattr(self.generator, "model", "sample-lesson")
             try:
                 connection.execute(
                     """INSERT INTO generation_calls
                        (id, generation_group_id, provider, model, outcome, created_at)
-                       VALUES (?, ?, 'mock', 'sample-lesson', 'in_progress', ?)""",
-                    (call_id, group_id, utc_now()),
+                       VALUES (?, ?, ?, ?, 'in_progress', ?)""",
+                    (call_id, group_id, provider, model, utc_now()),
                 )
             except sqlite3.IntegrityError as error:
                 raise GenerationInProgress from error
@@ -121,8 +134,11 @@ class TutorService:
                 )
                 connection.execute(
                     """UPDATE generation_calls
-                       SET lesson_id = ?, outcome = 'succeeded', cost_usd = 0,
-                           pricing_reference = 'simulated: no external call', finished_at = ?
+                       SET lesson_id = ?, outcome = 'succeeded',
+                           cost_usd = CASE WHEN provider = 'mock' THEN 0 END,
+                           pricing_reference = CASE WHEN provider = 'mock'
+                               THEN 'simulated: no external call' END,
+                           finished_at = ?
                        WHERE id = ?""",
                     (lesson_id, utc_now(), call_id),
                 )

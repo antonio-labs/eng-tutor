@@ -5,14 +5,14 @@ from uuid import uuid4
 from app.curriculum import load_curriculum, load_sample_lesson
 from app.database import connect
 from app.main import create_app
-from app.service import utc_now
+from app.service import generate_sample, utc_now
 
 
 STATIC_DIR = Path(__file__).parents[1] / "app" / "static"
 
 
 def test_app_serves_three_view_frontend(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     paths = {route.path for route in app.routes}
     html = (STATIC_DIR / "index.html").read_text()
     javascript = (STATIC_DIR / "app.js").read_text()
@@ -31,7 +31,7 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
 
 def test_separate_database_can_render_completed_curriculum_state(tmp_path) -> None:
     database_path = tmp_path / "completed-curriculum.db"
-    service = create_app(database_path).state.tutor_service
+    service = create_app(database_path, generate_sample).state.tutor_service
     lesson = load_sample_lesson()
     answers = {
         exercise.id: exercise.correct_option for exercise in lesson.exercises

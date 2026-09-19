@@ -97,6 +97,8 @@ class LearningSummary(Model):
     next_unit: CurriculumUnit | None
     active_lesson_id: str | None
     path_completed: bool
+    generation_available: bool
+    generation_unavailable_reason: str | None = None
 
 
 class AnswerResult(Model):

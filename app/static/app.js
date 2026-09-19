@@ -200,11 +200,17 @@ async function renderHome() {
       element("h1", "", summary.next_unit.title),
       element("p", "lede", summary.next_unit.objective),
     );
-    const actions = element("div", "actions");
-    actions.append(
-      button(summary.active_lesson_id ? "Riprendi" : "Inizia", "", startLesson),
-    );
-    copy.append(actions);
+    if (summary.active_lesson_id || summary.generation_available) {
+      const actions = element("div", "actions");
+      actions.append(
+        button(summary.active_lesson_id ? "Riprendi" : "Inizia", "", startLesson),
+      );
+      copy.append(actions);
+    } else {
+      copy.append(
+        element("p", "form-message", summary.generation_unavailable_reason),
+      );
+    }
   }
 
   const progress = element("aside", "progress-panel");
@@ -256,8 +262,8 @@ async function renderLesson(id) {
   );
   const meta = element("aside", "meta-panel");
   meta.append(
-    element("strong", "", "Lezione di esempio"),
-    element("p", "", "Il contenuto attuale è simulato e non proviene da un provider AI."),
+    element("strong", "", "Sessione breve"),
+    element("p", "", "Spiegazione, tre esempi e sei esercizi."),
     element("p", "", `${lesson.content.timing.total_minutes} minuti stimati`),
   );
   header.append(copy, meta);

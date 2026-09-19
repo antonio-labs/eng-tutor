@@ -5,6 +5,7 @@ description = "Tutor locale per il curriculum di grammatica inglese A1"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.141.1",
+    "litellm==1.101.0",
     "pydantic==2.13.5",
     "uvicorn==0.53.0",
 ]

@@ -5,11 +5,11 @@ import pytest
 
 from app.curriculum import load_sample_lesson
 from app.main import create_app
-from app.service import GenerationInProgress, LessonStateError
+from app.service import GenerationInProgress, LessonStateError, generate_sample
 
 
 def test_start_saves_then_resumes_and_summary_uses_curriculum_total(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     service = app.state.tutor_service
 
     first = service.start_or_resume()
@@ -50,7 +50,7 @@ def test_concurrent_starts_do_not_run_two_generators(tmp_path) -> None:
 
 
 def test_lesson_routes_are_exposed(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     assert {route.path for route in app.routes} >= {
         "/api/summary",
         "/api/lessons/start",
@@ -63,7 +63,7 @@ def test_lesson_routes_are_exposed(tmp_path) -> None:
 
 
 def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     service = app.state.tutor_service
     lesson = service.start_or_resume()
     assert lesson is not None
@@ -91,7 +91,7 @@ def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> No
 
 
 def test_discard_preserves_cost_and_does_not_advance(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     service = app.state.tutor_service
     first = service.start_or_resume()
     assert first is not None
@@ -111,7 +111,7 @@ def test_discard_preserves_cost_and_does_not_advance(tmp_path) -> None:
 
 
 def test_history_reopens_completed_results_and_rejects_completed_discard(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db")
+    app = create_app(tmp_path / "tutor.db", generate_sample)
     service = app.state.tutor_service
     lesson = service.start_or_resume()
     assert lesson is not None

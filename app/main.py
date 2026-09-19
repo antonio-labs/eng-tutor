@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.curriculum import load_curriculum
+from app.generation import GenerationUnavailable, LiteLLMGenerator
 from app.models import (
     AnswerSubmission,
     CompletedLesson,
@@ -48,7 +49,12 @@ def create_app(
 ) -> FastAPI:
     application = FastAPI(title="AI English Tutor", version="0.1.0")
     path = database_path or Path(os.getenv("DATABASE_PATH", "data/tutor.db"))
-    service = TutorService(path, generator) if generator else TutorService(path)
+    if generator is None:
+        try:
+            generator = LiteLLMGenerator.from_env()
+        except GenerationUnavailable:
+            generator = None
+    service = TutorService(path, generator)
 
     application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -76,6 +82,11 @@ def create_app(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="La generazione di una lezione è già in corso.",
+            ) from error
+        except GenerationUnavailable as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(error),
             ) from error
         if lesson is None:
             raise HTTPException(
