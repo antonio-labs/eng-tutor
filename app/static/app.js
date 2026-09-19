@@ -23,6 +23,40 @@ function navigate(path) {
   window.location.hash = path;
 }
 
+function draftKey(lessonId) {
+  return `lesson-draft:${lessonId}`;
+}
+
+function loadDraft(lessonId) {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey(lessonId))) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(lessonId, form, exercises) {
+  const data = new FormData(form);
+  const answers = {};
+  for (const exercise of exercises) {
+    const selected = data.get(exercise.id);
+    if (selected !== null) answers[exercise.id] = Number(selected);
+  }
+  try {
+    localStorage.setItem(draftKey(lessonId), JSON.stringify(answers));
+  } catch {
+    announce("Il browser non ha potuto salvare le selezioni provvisorie.");
+  }
+}
+
+function clearDraft(lessonId) {
+  try {
+    localStorage.removeItem(draftKey(lessonId));
+  } catch {
+    // La risposta è già salvata sul backend; la bozza residua è innocua.
+  }
+}
+
 async function request(path, options = {}) {
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -47,8 +81,14 @@ function showError(error) {
   section.append(
     element("h1", "", "Non è stato possibile caricare la pagina"),
     element("p", "page-error", error.message),
+    element("p", "", "Puoi riprovare senza perdere i dati già salvati."),
+  );
+  const actions = element("div", "actions");
+  actions.append(
+    button("Riprova", "", route),
     button("Torna alla home", "secondary", () => navigate("home")),
   );
+  section.append(actions);
   app.replaceChildren(section);
   announce(error.message);
 }
@@ -244,6 +284,19 @@ async function renderLesson(id) {
   lesson.content.exercises.forEach((exercise, index) => {
     form.append(buildQuestion(exercise, index));
   });
+  const draft = loadDraft(id);
+  for (const exercise of lesson.content.exercises) {
+    const selected = draft[exercise.id];
+    if (Number.isInteger(selected) && selected >= 0 && selected < 3) {
+      const input = form.querySelector(
+        `input[name="${CSS.escape(exercise.id)}"][value="${selected}"]`,
+      );
+      if (input) input.checked = true;
+    }
+  }
+  form.addEventListener("change", () => {
+    saveDraft(id, form, lesson.content.exercises);
+  });
   const message = element("p", "form-message");
   message.hidden = true;
   const actions = element("div", "actions");
@@ -252,6 +305,7 @@ async function renderLesson(id) {
     discard.disabled = true;
     try {
       await request(`/api/lessons/${id}/discard`, { method: "POST" });
+      clearDraft(id);
       navigate("home");
     } catch (error) {
       message.textContent = error.message;
@@ -278,6 +332,7 @@ async function renderLesson(id) {
         method: "POST",
         body: JSON.stringify({ answers }),
       });
+      clearDraft(id);
       navigate(`result/${id}`);
     } catch (error) {
       message.textContent = error.message;

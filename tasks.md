@@ -28,7 +28,7 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 ## 3. Interfaccia utilizzabile
 
 - [x] **3.1 — Tre viste.** Realizzare home, lezione e risultato con HTML/CSS/JavaScript serviti dal backend. Usare il totale del curriculum per il progresso; rendere visibili storico, punteggi e costi senza dashboard o filtri aggiuntivi.
-- [ ] **3.2 — Compilazione e recupero.** Salvare le selezioni provvisorie nel browser per lezione, ripristinarle al ricaricamento e cancellarle dopo invio riuscito/scarto. Gestire caricamento, doppio clic, errori recuperabili e fine del percorso; nessun timer obbligatorio.
+- [x] **3.2 — Compilazione e recupero.** Salvare le selezioni provvisorie nel browser per lezione, ripristinarle al ricaricamento e cancellarle dopo invio riuscito/scarto. Gestire caricamento, doppio clic, errori recuperabili e fine del percorso; nessun timer obbligatorio.
 - [ ] **3.3 — Prova del primo flusso.** Completare nel browser una lezione di esempio, riprenderla, scartarla e consultare un risultato precedente. Verificare navigazione da tastiera, etichette, testi leggibili e rendering sicuro dei contenuti. Usare un database di prova separato per simulare la fine del curriculum.
 
 **Risultato verificabile:** si può usare l'app dall'inizio al risultato; in questa fase i contenuti di esempio sono dichiarati come tali e non dimostrano ancora l'integrazione AI.

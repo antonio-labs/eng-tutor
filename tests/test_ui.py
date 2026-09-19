@@ -17,5 +17,8 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
     assert "renderHome" in javascript
     assert "renderLesson" in javascript
     assert "renderResult" in javascript
+    assert "localStorage.setItem" in javascript
+    assert "localStorage.removeItem" in javascript
+    assert "button(\"Riprova\"" in javascript
     assert "innerHTML" not in javascript
     assert "—" not in html + javascript
