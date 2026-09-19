@@ -17,7 +17,7 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 
 ## 2. Persistenza e flusso applicativo
 
-- [ ] **2.1 — Database locale.** Creare `lessons` e `generation_calls` con inizializzazione ripetibile, stati e campi previsti dalla spec. Conservare separatamente i consumi delle chiamate che non producono una lezione; ricavare i progressi dai risultati senza tabelle duplicate.
+- [x] **2.1 — Database locale.** Creare `lessons` e `generation_calls` con inizializzazione ripetibile, stati e campi previsti dalla spec. Conservare separatamente i consumi delle chiamate che non producono una lezione; ricavare i progressi dai risultati senza tabelle duplicate.
 - [ ] **2.2 — Inizio e ripresa.** Esporre l'avvio/lettura di una lezione e il riepilogo del percorso, usando inizialmente un generatore simulato solo per sviluppo e test. Salvare prima di presentare; riutilizzare la lezione attiva. Impedire che avvii ravvicinati creino due lezioni attive o due generazioni concorrenti.
 - [ ] **2.3 — Invio e risultato.** Validare ID, completezza e opzioni; correggere contro il contenuto salvato. Salvare risposte e completamento insieme, rendere il risultato immutabile e restituire lo stesso risultato a invii duplicati.
 - [ ] **2.4 — Scarto e storico.** Aggiungere scarto prima dell'invio, elenco essenziale delle lezioni completate/scartate e riapertura dei risultati. Conservare i costi dello scarto, non avanzare e non rigenerare automaticamente. Rifiutare invii su lezioni scartate e scarti di lezioni completate.
