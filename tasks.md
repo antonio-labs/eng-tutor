@@ -54,7 +54,7 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 
 ## 6. Documentazione per GitHub
 
-- [ ] **6.1 — README riproducibile.** Descrivere problema, scope, flusso utente e architettura essenziale; includere prerequisiti, installazione, avvio, configurazione, test e soluzione dei problemi comuni. Provare le istruzioni in un ambiente pulito sul computer attuale.
+- [x] **6.1 — README riproducibile.** Descrivere problema, scope, flusso utente e architettura essenziale; includere prerequisiti, installazione, avvio, configurazione, test e soluzione dei problemi comuni. Provare le istruzioni in un ambiente pulito sul computer attuale.
 - [ ] **6.2 — Trasparenza su contenuti e costi.** Collegare fonti e curriculum, spiegare i 15 minuti stimati, distinguere AI e logica deterministica, documentare uso dei dati, costo stimato rispetto alla fatturazione e modalità di backup manuale. Documentare lo stato del collaudo reale se il blocco 5 è ancora aperto.
 - [ ] **6.3 — Demo fedele.** Aggiungere una breve sequenza di schermate o un esempio del flusso ottenuto dall'app funzionante, senza segreti o dati personali. Separare nel README funzionalità presenti, limiti osservati e roadmap: memoria degli errori, dataset/RAG, più lezioni per argomento e ripassi restano futuri.
 
