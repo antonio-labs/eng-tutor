@@ -9,7 +9,7 @@ verificabili senza introdurre account, servizi applicativi remoti o una
 piattaforma didattica completa. Le lezioni e lo storico restano in un database
 SQLite sul computer dell'utente.
 
-## Cosa include
+## Funzionalità presenti
 
 - percorso A1 sequenziale di 36 unità;
 - una lezione attiva alla volta, salvata prima di essere mostrata;
@@ -20,8 +20,22 @@ SQLite sul computer dell'utente.
 - generazione tramite LiteLLM con massimo due chiamate in 60 secondi;
 - storico locale e stime di costo note, parziali o non disponibili.
 
-Non include autenticazione, sincronizzazione tra dispositivi, deployment,
-certificazione linguistica o adattamento personalizzato del percorso.
+## Limiti osservati
+
+- il provider e il modello non sono ancora stati scelti o collaudati dal vivo;
+- la validazione strutturale non garantisce da sola la correttezza didattica del
+  testo generato, che richiede la revisione prevista nel blocco 5;
+- il percorso copre la grammatica A1, non tutte le competenze CEFR A1;
+- dati e bozze sono locali al computer e al browser, senza sincronizzazione;
+- le stime di costo possono essere parziali o non disponibili;
+- non sono inclusi account, deployment o adattamento personale del percorso.
+
+## Roadmap fuori dall'MVP
+
+Memoria degli errori ricorrenti, dataset didattico o RAG, più lezioni per lo
+stesso argomento e ripassi programmati restano sviluppi futuri. Non esistono
+componenti vuoti o astrazioni predisposte per queste funzioni nella versione
+attuale.
 
 ## Flusso utente
 
@@ -32,6 +46,26 @@ certificazione linguistica o adattamento personalizzato del percorso.
 5. Il risultato mostra punteggio, soluzioni, motivazioni e costo disponibile.
 6. Con almeno 5/6 la home passa all'unità successiva; altrimenti ripropone la
    stessa unità in una nuova lezione.
+
+## Esempio del flusso verificato
+
+Questa sequenza è stata eseguita il 19 settembre 2026 nell'app funzionante, con
+un database temporaneo e la lezione di esempio dichiarata come simulata:
+
+1. la home mostrava **Pronomi soggetto e presente di be** e progresso `0/36`;
+2. dopo **Inizia**, la pagina mostrava spiegazione, tre esempi e sei domande;
+3. alcune risposte sono state selezionate e un ricaricamento le ha ripristinate;
+4. l'invio completo, anche con doppio clic, ha prodotto una sola volta il
+   risultato `6/6`, `100%`, **Lezione superata**;
+5. la home è passata a `1/36` e all'unità **Negazioni e domande con be**;
+6. la nuova lezione è stata ripresa dopo un ricaricamento, poi scartata senza
+   avanzare; lo storico ha mantenuto sia il risultato precedente sia lo scarto;
+7. **Apri risultato** ha riaperto il dettaglio immutato della prima lezione.
+
+Con un secondo database di prova già completato, la home ha mostrato `36/36` e
+**Percorso di grammatica A1 completato**. La stessa prova ha verificato uso da
+tastiera, modalità scura e assenza di interpretazione HTML dei testi mostrati.
+Non è stata eseguita alcuna chiamata a un provider LLM.
 
 ## Architettura essenziale
 

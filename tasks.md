@@ -56,6 +56,6 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 
 - [x] **6.1 — README riproducibile.** Descrivere problema, scope, flusso utente e architettura essenziale; includere prerequisiti, installazione, avvio, configurazione, test e soluzione dei problemi comuni. Provare le istruzioni in un ambiente pulito sul computer attuale.
 - [x] **6.2 — Trasparenza su contenuti e costi.** Collegare fonti e curriculum, spiegare i 15 minuti stimati, distinguere AI e logica deterministica, documentare uso dei dati, costo stimato rispetto alla fatturazione e modalità di backup manuale. Documentare lo stato del collaudo reale se il blocco 5 è ancora aperto.
-- [ ] **6.3 — Demo fedele.** Aggiungere una breve sequenza di schermate o un esempio del flusso ottenuto dall'app funzionante, senza segreti o dati personali. Separare nel README funzionalità presenti, limiti osservati e roadmap: memoria degli errori, dataset/RAG, più lezioni per argomento e ripassi restano futuri.
+- [x] **6.3 — Demo fedele.** Aggiungere una breve sequenza di schermate o un esempio del flusso ottenuto dall'app funzionante, senza segreti o dati personali. Separare nel README funzionalità presenti, limiti osservati e roadmap: memoria degli errori, dataset/RAG, più lezioni per argomento e ripassi restano futuri.
 
 **Risultato verificabile:** un visitatore del repository comprende cosa fa davvero l'MVP, lo può avviare seguendo le istruzioni e sa quali prove sono state eseguite. La pubblicazione su GitHub e il deployment non fanno parte di queste attività.
