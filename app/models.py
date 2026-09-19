@@ -83,6 +83,22 @@ class LessonView(Model):
     timing: LessonTiming = Field(default_factory=LessonTiming)
 
 
+class LessonSession(Model):
+    id: NonEmptyText
+    status: Literal["active", "completed", "discarded"]
+    unit: CurriculumUnit
+    content: LessonView
+    created_at: NonEmptyText
+
+
+class LearningSummary(Model):
+    completed_units: int = Field(ge=0)
+    total_units: int = Field(gt=0)
+    next_unit: CurriculumUnit | None
+    active_lesson_id: str | None
+    path_completed: bool
+
+
 class AnswerResult(Model):
     exercise_id: NonEmptyText
     selected_option: OptionIndex

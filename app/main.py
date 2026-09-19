@@ -1,14 +1,22 @@
-from fastapi import FastAPI
+import os
+from collections.abc import Callable
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, status
 
 from app.curriculum import load_curriculum
-from app.models import CurriculumUnit
+from app.models import (
+    CurriculumUnit,
+    LearningSummary,
+    LessonContent,
+    LessonSession,
+)
+from app.service import GenerationInProgress, TutorService
 
 
-app = FastAPI(title="AI English Tutor", version="0.1.0")
 curriculum = load_curriculum()
 
 
-@app.get("/")
 def root() -> dict[str, str | int]:
     return {
         "name": "AI English Tutor",
@@ -17,6 +25,55 @@ def root() -> dict[str, str | int]:
     }
 
 
-@app.get("/api/curriculum", response_model=list[CurriculumUnit])
 def get_curriculum() -> list[CurriculumUnit]:
     return curriculum
+
+
+def create_app(
+    database_path: Path | None = None,
+    generator: Callable[[CurriculumUnit], LessonContent] | None = None,
+) -> FastAPI:
+    application = FastAPI(title="AI English Tutor", version="0.1.0")
+    path = database_path or Path(os.getenv("DATABASE_PATH", "data/tutor.db"))
+    service = TutorService(path, generator) if generator else TutorService(path)
+
+    application.add_api_route("/", root, methods=["GET"])
+    application.add_api_route(
+        "/api/curriculum",
+        get_curriculum,
+        methods=["GET"],
+        response_model=list[CurriculumUnit],
+    )
+
+    @application.get("/api/summary", response_model=LearningSummary)
+    def get_summary() -> LearningSummary:
+        return service.summary()
+
+    @application.post("/api/lessons/start", response_model=LessonSession)
+    def start_lesson() -> LessonSession:
+        try:
+            lesson = service.start_or_resume()
+        except GenerationInProgress as error:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La generazione di una lezione è già in corso.",
+            ) from error
+        if lesson is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Percorso di grammatica A1 completato.",
+            )
+        return lesson
+
+    @application.get("/api/lessons/{lesson_id}", response_model=LessonSession)
+    def get_lesson(lesson_id: str) -> LessonSession:
+        lesson = service.get_lesson(lesson_id)
+        if lesson is None:
+            raise HTTPException(status_code=404, detail="Lezione non trovata.")
+        return lesson
+
+    application.state.tutor_service = service
+    return application
+
+
+app = create_app()
