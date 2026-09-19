@@ -1,8 +1,9 @@
 import os
+import json
 from dataclasses import dataclass
 from typing import Any
 
-from litellm import completion
+from litellm import completion, supports_response_schema
 
 from app.models import CurriculumUnit, LessonContent
 
@@ -45,19 +46,42 @@ class LiteLLMGenerator:
         return cls(LLMConfig.from_env())
 
     def __call__(self, unit: CurriculumUnit) -> LessonContent:
+        prompt = {
+            "level": "A1",
+            "unit": {
+                "id": unit.id,
+                "title": unit.title,
+                "objective": unit.objective,
+            },
+            "languages": {
+                "explanation_and_rationales": "Italian",
+                "examples_questions_and_options": "English",
+            },
+            "format": {
+                "instructions": (
+                    "Return only JSON. Keep vocabulary at A1 level. Create exactly "
+                    "three examples and six distinct multiple-choice questions with "
+                    "three distinct options, one correct option and one rationale each."
+                ),
+                "json_schema": LessonContent.model_json_schema(),
+            },
+        }
+        try:
+            native_schema = supports_response_schema(model=self.config.model)
+        except Exception:
+            native_schema = False
         kwargs: dict[str, Any] = {
             "model": self.config.model,
             "api_key": self.config.api_key,
             "messages": [
                 {
                     "role": "user",
-                    "content": (
-                        "Genera una lezione A1 in JSON per "
-                        f"{unit.title}. Obiettivo: {unit.objective}"
-                    ),
+                    "content": json.dumps(prompt, ensure_ascii=False),
                 }
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": (
+                LessonContent if native_schema else {"type": "json_object"}
+            ),
             "num_retries": 0,
             "timeout": 60,
         }
