@@ -4,6 +4,8 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.curriculum import load_curriculum
 from app.models import (
@@ -25,6 +27,7 @@ from app.service import (
 
 
 curriculum = load_curriculum()
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def root() -> dict[str, str | int]:
@@ -47,7 +50,13 @@ def create_app(
     path = database_path or Path(os.getenv("DATABASE_PATH", "data/tutor.db"))
     service = TutorService(path, generator) if generator else TutorService(path)
 
-    application.add_api_route("/", root, methods=["GET"])
+    application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @application.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html")
+
+    application.add_api_route("/api/health", root, methods=["GET"])
     application.add_api_route(
         "/api/curriculum",
         get_curriculum,

@@ -162,7 +162,7 @@ class TutorService:
             content = LessonContent.model_validate_json(row["content_json"])
             if row["status"] == "completed":
                 saved_answers = json.loads(row["answers_json"])
-                return self._completed_lesson(row, content, saved_answers)
+                return self._completed_lesson(row, content, saved_answers, connection)
 
             result = grade_lesson(content, answers)
             completed_at = utc_now()
@@ -181,7 +181,7 @@ class TutorService:
             completed_row = connection.execute(
                 "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
             ).fetchone()
-            return self._completed_lesson(completed_row, content, answers)
+            return self._completed_lesson(completed_row, content, answers, connection)
 
     def discard_lesson(self, lesson_id: str) -> DiscardedLesson:
         with connect(self.database_path) as connection:
@@ -238,12 +238,14 @@ class TutorService:
             row = connection.execute(
                 "SELECT * FROM lessons WHERE id = ?", (lesson_id,)
             ).fetchone()
-        if row is None:
-            raise LessonNotFound
-        if row["status"] != "completed":
-            raise LessonStateError("Il risultato è disponibile solo dopo l'invio.")
-        content = LessonContent.model_validate_json(row["content_json"])
-        return self._completed_lesson(row, content, json.loads(row["answers_json"]))
+            if row is None:
+                raise LessonNotFound
+            if row["status"] != "completed":
+                raise LessonStateError("Il risultato è disponibile solo dopo l'invio.")
+            content = LessonContent.model_validate_json(row["content_json"])
+            return self._completed_lesson(
+                row, content, json.loads(row["answers_json"]), connection
+            )
 
     @staticmethod
     def _attempts(connection: sqlite3.Connection) -> list[AttemptResult]:
@@ -269,6 +271,7 @@ class TutorService:
         row: sqlite3.Row,
         content: LessonContent,
         answers: dict[str, int],
+        connection: sqlite3.Connection,
     ) -> CompletedLesson:
         unit = self._unit(row["unit_id"])
         return CompletedLesson(
@@ -276,6 +279,7 @@ class TutorService:
             unit=unit,
             result=grade_lesson(content, answers),
             completed_at=row["completed_at"],
+            cost=self._cost(connection, row["id"]),
         )
 
     def _unit(self, unit_id: str) -> CurriculumUnit:

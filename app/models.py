@@ -120,17 +120,18 @@ class AnswerSubmission(Model):
     answers: dict[NonEmptyText, OptionIndex]
 
 
+class CostSummary(Model):
+    status: Literal["known", "partial", "unavailable"]
+    known_usd: float | None = Field(default=None, ge=0)
+
+
 class CompletedLesson(Model):
     id: NonEmptyText
     status: Literal["completed"] = "completed"
     unit: CurriculumUnit
     result: LessonResult
     completed_at: NonEmptyText
-
-
-class CostSummary(Model):
-    status: Literal["known", "partial", "unavailable"]
-    known_usd: float | None = Field(default=None, ge=0)
+    cost: CostSummary
 
 
 class DiscardedLesson(Model):
