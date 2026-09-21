@@ -22,7 +22,7 @@ SQLite sul computer dell'utente.
 
 ## Limiti osservati
 
-- il provider e il modello non sono ancora stati scelti o collaudati dal vivo;
+- DeepSeek e il modello `deepseek-flash` non sono ancora stati collaudati dal vivo;
 - la validazione strutturale non garantisce da sola la correttezza didattica del
   testo generato, che richiede la revisione prevista nel blocco 5;
 - il percorso copre la grammatica A1, non tutte le competenze CEFR A1;
@@ -105,15 +105,15 @@ da Git.
 Modificare `.env` senza inserire mai credenziali nei file versionati:
 
 ```dotenv
-LLM_MODEL=provider/model-name
+LLM_MODEL=deepseek/deepseek-flash
 LLM_API_KEY=replace-me
 LLM_API_BASE=
 DATABASE_PATH=data/tutor.db
 ```
 
-`LLM_MODEL` usa il nome accettato da LiteLLM. `LLM_API_BASE` è opzionale e va
-impostato solo se il provider richiede un endpoint personalizzato. È supportato
-un solo provider/modello alla volta.
+Il prefisso `deepseek/` indica a LiteLLM il provider da chiamare. `LLM_API_BASE`
+resta vuoto perché LiteLLM conosce già l'endpoint ufficiale di DeepSeek. È
+supportato un solo provider/modello alla volta.
 
 Senza `LLM_MODEL` o `LLM_API_KEY` l'app si avvia comunque: storico, risultati e
 lezioni già salvate restano disponibili, mentre la home spiega perché non può
@@ -122,15 +122,15 @@ creare una nuova lezione.
 ## Avvio
 
 ```bash
-uv run --frozen --env-file .env uvicorn app.main:app \
-  --host 127.0.0.1 --port 8000
+make
 ```
 
 Aprire <http://127.0.0.1:8000>. La documentazione interattiva delle API è su
 <http://127.0.0.1:8000/docs>. L'ascolto su `127.0.0.1` mantiene l'app accessibile
 soltanto dal computer locale.
 
-Durante lo sviluppo si può aggiungere `--reload` al comando di avvio.
+Il `Makefile` carica `.env`, usa le dipendenze bloccate nel lockfile e limita
+l'ascolto a `127.0.0.1`.
 
 ## Test
 
@@ -206,16 +206,17 @@ nel servizio scelto.
 
 ## Stato del collaudo LLM
 
-Al 19 settembre 2026 non è stato scelto né chiamato un provider reale. Il client,
-la validazione, i retry, gli errori, i consumi e i costi sono verificati con mock
-deterministici; il flusso browser è stato provato con il contenuto di esempio.
-Restano aperti autenticazione reale, capacità del modello, qualità didattica,
-latenza, consumi e tariffa effettivi descritti nel blocco 5 di [tasks.md](tasks.md).
+DeepSeek con `deepseek-flash` è il provider configurato, ma non è ancora stato
+chiamato. Il client, la validazione, i retry, gli errori, i consumi e i costi sono
+verificati con mock deterministici; il flusso browser è stato provato con il
+contenuto di esempio. Restano aperti autenticazione reale, capacità del modello,
+qualità didattica, latenza, consumi e tariffa effettivi descritti nel blocco 5 di
+[tasks.md](tasks.md).
 
 ## Risoluzione dei problemi
 
 **La home non consente di iniziare una lezione.** Verificare che `.env` contenga
-sia `LLM_MODEL` sia `LLM_API_KEY` e che l'avvio includa `--env-file .env`.
+sia `LLM_MODEL` sia `LLM_API_KEY`, quindi riavviare con `make`.
 
 **Il provider rifiuta credenziali o modello.** Controllare i nomi e la chiave
 nella documentazione del provider scelto. L'app non prova automaticamente un
