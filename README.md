@@ -72,9 +72,10 @@ Quella specifica prova non ha eseguito chiamate a un provider LLM.
 
 - `app/static/`: interfaccia HTML, CSS e JavaScript senza build frontend;
 - `app/main.py`: API FastAPI e distribuzione dei file statici;
-- `app/service.py`: ciclo della lezione, stati, retry e aggregazione dei costi;
-- `app/generation.py`: singolo client LiteLLM e validazione dell'output;
-- `app/grading.py`: correzione e avanzamento deterministici;
+- `app/service.py`: ciclo della lezione, stati e storico;
+- `app/generation.py`: provider, retry, tentativi persistenti e costi;
+- `app/assessment.py`: correzione e avanzamento deterministici;
+- `app/course.py`: contenuti verificati del percorso A1;
 - `app/database.py`: schema e connessione SQLite;
 - `app/data/grammar_explanations/`: le 36 spiegazioni Markdown curate;
 - `app/data/sample_practice.json`: pratica di esempio usata soltanto nei test;
@@ -204,7 +205,7 @@ unisce ai contenuti curati e salva lo snapshot completo.
 
 Correzione, punteggio, soglia 5/6, avanzamento, scarto, storico e consultazione
 dei risultati sono logica locale deterministica e non fanno altre richieste AI.
-Il comportamento previsto è definito nella [specifica dell'MVP](MVP-SPEC.md).
+Il comportamento previsto è definito nella [specifica dell'MVP](docs/specs/MVP-SPEC.md).
 
 ## Dati locali e backup
 

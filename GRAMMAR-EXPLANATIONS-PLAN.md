@@ -3,7 +3,7 @@
 **Stato:** completato e verificato il 22 settembre 2026. Le evidenze automatiche,
 editoriali e browser sono registrate in [MVP-VALIDATION.md](MVP-VALIDATION.md).
 
-Questo piano estende l'MVP descritto in [MVP-SPEC.md](MVP-SPEC.md) senza
+Questo piano estende l'MVP descritto in [MVP-SPEC.md](docs/specs/MVP-SPEC.md) senza
 riaprire le attività già completate in [tasks.md](tasks.md). Le fonti e il
 perimetro delle 36 unità restano quelli di [A1-CURRICULUM.md](A1-CURRICULUM.md);
 la ricerca editoriale di supporto è raccolta in
@@ -29,9 +29,9 @@ salvati e il budget didattico di 15 minuti.
    migrazione del database.
 4. La lezione salva una copia della spiegazione insieme a esempi ed esercizi:
    modificare un file in futuro non riscrive lo storico.
-5. L'interfaccia del generatore resta `CurriculumUnit -> LessonContent`; la
-   separazione tra contenuto curato e contenuto AI rimane nascosta nella sua
-   implementazione.
+5. L'interfaccia del generatore riceve un Contenuto dell’unità già verificato;
+   la separazione tra contenuto curato e pratica generata rimane nascosta nella
+   sua implementazione.
 6. Il browser interpreta come Markdown soltanto `explanation`. Titoli, esempi,
    domande, opzioni e motivazioni continuano a essere mostrati come testo.
 7. Per l'MVP si usa un sottoinsieme sicuro di Markdown senza HTML, immagini o
@@ -107,8 +107,7 @@ Alcuni argomenti richiedono naturalmente meno testo di altri.
 **Modifiche:**
 
 - creare `app/data/grammar_explanations/`;
-- aggiungere in `app/curriculum.py` una sola funzione pubblica,
-  `load_explanation_markdown(unit_id) -> str`;
+- concentrare in `app/course.py` caricamento e validazione dell’intero percorso;
 - caricare esclusivamente file corrispondenti agli ID del curriculum, in UTF-8;
 - rifiutare file mancanti o vuoti con un errore che indichi chiaramente l'ID;
 - non duplicare titoli, obiettivi o fonti nei file Markdown.
@@ -225,8 +224,7 @@ Per ogni lotto:
   da rispettare, non da riscrivere;
 - assemblare internamente il `LessonContent` finale usando ID e spiegazione del
   backend più la pratica restituita dall'LLM;
-- mantenere invariata l'interfaccia pubblica del generatore e il flusso del
-  `TutorService`;
+- mantenere il provider dietro una sola interfaccia di generazione;
 - aggiornare il generatore di esempio e i relativi fixture/test.
 
 **Criteri di completamento:**
@@ -267,7 +265,7 @@ utilizzabile senza regressioni osservate.
 
 **Modifiche:**
 
-- aggiornare `MVP-SPEC.md`: spiegazione Markdown curata nel backend e output AI
+- aggiornare `docs/specs/MVP-SPEC.md`: spiegazione Markdown curata nel backend e output AI
   limitato alla pratica;
 - aggiornare `README.md`: posizione dei file, formato supportato e procedura per
   modificare una spiegazione;

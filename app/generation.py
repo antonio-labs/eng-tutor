@@ -1,8 +1,13 @@
 import json
 import os
+import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from importlib.metadata import version
-from typing import Any
+from pathlib import Path
+from time import monotonic
+from typing import Any, Protocol
+from uuid import uuid4
 
 from litellm import completion, completion_cost
 from litellm.exceptions import (
@@ -21,13 +26,33 @@ from litellm.exceptions import (
 )
 from pydantic import Field, ValidationError
 
-from app.curriculum import load_explanation_markdown
-from app.models import CurriculumUnit, Exercise, LessonContent, LessonExample, Model
+from app.course import load_sample_lesson
+from app.database import connect
+from app.models import (
+    EXERCISES_PER_LESSON,
+    CostSummary,
+    CourseUnitContent,
+    Exercise,
+    FailedGeneration,
+    LessonContent,
+    LessonExample,
+    Model,
+)
+
+
+MAX_GENERATION_CALLS = 2
+GENERATION_DEADLINE_SECONDS = 60
+GENERATION_UNAVAILABLE_MESSAGE = (
+    "Configura LLM_MODEL e LLM_API_KEY per creare una nuova lezione."
+)
 
 
 class _GeneratedPractice(Model):
     examples: list[LessonExample] = Field(min_length=3, max_length=3)
-    exercises: list[Exercise] = Field(min_length=6, max_length=6)
+    exercises: list[Exercise] = Field(
+        min_length=EXERCISES_PER_LESSON,
+        max_length=EXERCISES_PER_LESSON,
+    )
 
 
 class GenerationUnavailable(Exception):
@@ -35,6 +60,10 @@ class GenerationUnavailable(Exception):
 
 
 class GenerationFailed(Exception):
+    pass
+
+
+class GenerationInProgress(Exception):
     pass
 
 
@@ -58,6 +87,15 @@ class CallMetrics:
 class GenerationOutput:
     content: LessonContent
     metrics: CallMetrics
+
+
+class PracticeGenerator(Protocol):
+    provider: str
+    model: str
+
+    def generate_once(
+        self, unit_content: CourseUnitContent, timeout: float
+    ) -> GenerationOutput: ...
 
 
 class InvalidGenerationResponse(Exception):
@@ -132,9 +170,7 @@ class LLMConfig:
         model = os.getenv("LLM_MODEL", "").strip()
         api_key = os.getenv("LLM_API_KEY", "").strip()
         if not model or not api_key:
-            raise GenerationUnavailable(
-                "Configura LLM_MODEL e LLM_API_KEY per creare una nuova lezione."
-            )
+            raise GenerationUnavailable(GENERATION_UNAVAILABLE_MESSAGE)
         return cls(
             model=model,
             api_key=api_key,
@@ -154,11 +190,11 @@ class LiteLLMGenerator:
     def from_env(cls) -> "LiteLLMGenerator":
         return cls(LLMConfig.from_env())
 
-    def __call__(self, unit: CurriculumUnit) -> LessonContent:
-        return self.generate_once(unit, timeout=60).content
-
-    def generate_once(self, unit: CurriculumUnit, timeout: float) -> GenerationOutput:
-        explanation = load_explanation_markdown(unit.id).strip()
+    def generate_once(
+        self, unit_content: CourseUnitContent, timeout: float
+    ) -> GenerationOutput:
+        unit = unit_content.unit
+        explanation = unit_content.explanation.strip()
         prompt = {
             "level": "A1",
             "unit": {
@@ -251,3 +287,230 @@ class LiteLLMGenerator:
                 else None
             ),
         )
+
+
+class SampleGenerator:
+    provider = "mock"
+    model = "sample-lesson"
+
+    def generate_once(
+        self, unit_content: CourseUnitContent, timeout: float
+    ) -> GenerationOutput:
+        _ = timeout
+        return GenerationOutput(load_sample_lesson(unit_content), CallMetrics())
+
+
+class LessonGeneration:
+    def __init__(
+        self,
+        database_path: Path,
+        generator: PracticeGenerator | None,
+    ) -> None:
+        self.database_path = database_path
+        self.generator = generator
+        with connect(database_path) as connection:
+            connection.execute(
+                """UPDATE generation_calls
+                   SET outcome = 'unknown', finished_at = ?
+                   WHERE outcome = 'in_progress'""",
+                (_utc_now(),),
+            )
+
+    @property
+    def available(self) -> bool:
+        return self.generator is not None
+
+    def create_or_resume(self, unit_content: CourseUnitContent) -> str:
+        with connect(self.database_path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            active = connection.execute(
+                "SELECT id FROM lessons WHERE status = 'active'"
+            ).fetchone()
+            if active:
+                return active["id"]
+            if self.generator is None:
+                raise GenerationUnavailable(GENERATION_UNAVAILABLE_MESSAGE)
+
+            group_id = str(uuid4())
+            try:
+                call_id = self._insert_call(connection, group_id)
+            except sqlite3.IntegrityError as error:
+                raise GenerationInProgress from error
+
+        generated = False
+        metrics = CallMetrics()
+        try:
+            content, call_id, metrics = self._generate(
+                unit_content, group_id, call_id
+            )
+            generated = True
+            lesson_id = str(uuid4())
+            with connect(self.database_path) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    """INSERT INTO lessons
+                       (id, unit_id, content_json, status, created_at)
+                       VALUES (?, ?, ?, 'active', ?)""",
+                    (
+                        lesson_id,
+                        unit_content.unit.id,
+                        content.model_dump_json(),
+                        _utc_now(),
+                    ),
+                )
+                connection.execute(
+                    """UPDATE generation_calls
+                       SET lesson_id = ? WHERE generation_group_id = ?""",
+                    (lesson_id, group_id),
+                )
+                connection.execute(
+                    """UPDATE generation_calls
+                       SET outcome = 'succeeded',
+                           prompt_tokens = ?, completion_tokens = ?, total_tokens = ?,
+                           cost_usd = CASE WHEN provider = 'mock' THEN 0 ELSE ? END,
+                           pricing_reference = CASE WHEN provider = 'mock'
+                               THEN 'simulated: no external call' ELSE ? END,
+                           finished_at = ?
+                       WHERE id = ?""",
+                    (
+                        metrics.prompt_tokens,
+                        metrics.completion_tokens,
+                        metrics.total_tokens,
+                        metrics.cost_usd,
+                        metrics.pricing_reference,
+                        _utc_now(),
+                        call_id,
+                    ),
+                )
+            return lesson_id
+        except Exception:
+            if generated:
+                self._finish_call(call_id, "succeeded", metrics=metrics)
+            raise
+
+    def failed_generations(self) -> list[FailedGeneration]:
+        with connect(self.database_path) as connection:
+            rows = connection.execute(
+                """SELECT generation_group_id, MIN(created_at) AS created_at,
+                          MAX(provider) AS provider, MAX(model) AS model,
+                          GROUP_CONCAT(outcome) AS outcomes,
+                          COUNT(*) AS calls, COUNT(cost_usd) AS known_calls,
+                          SUM(cost_usd) AS known_usd
+                   FROM generation_calls
+                   WHERE lesson_id IS NULL AND outcome != 'in_progress'
+                   GROUP BY generation_group_id
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+        return [
+            FailedGeneration(
+                generation_group_id=row["generation_group_id"],
+                created_at=row["created_at"],
+                provider=row["provider"] or "non disponibile",
+                model=row["model"] or "non disponibile",
+                calls=row["calls"],
+                outcomes=row["outcomes"].split(","),
+                cost=_cost_from_counts(row),
+            )
+            for row in rows
+        ]
+
+    def _generate(
+        self,
+        unit_content: CourseUnitContent,
+        group_id: str,
+        call_id: str,
+    ) -> tuple[LessonContent, str, CallMetrics]:
+        deadline = monotonic() + GENERATION_DEADLINE_SECONDS
+
+        for attempt in range(MAX_GENERATION_CALLS):
+            remaining = deadline - monotonic()
+            try:
+                if remaining <= 0:
+                    raise TimeoutError
+                output = self.generator.generate_once(unit_content, timeout=remaining)
+                return output.content, call_id, output.metrics
+            except Exception as error:
+                cause = (
+                    error.cause
+                    if isinstance(error, InvalidGenerationResponse)
+                    else error
+                )
+                metrics = (
+                    error.metrics
+                    if isinstance(error, InvalidGenerationResponse)
+                    else CallMetrics()
+                )
+                disposition = classify_generation_error(cause)
+                self._finish_call(
+                    call_id,
+                    disposition.outcome,
+                    type(cause).__name__,
+                    metrics,
+                )
+                can_retry = (
+                    disposition.retryable
+                    and attempt + 1 < MAX_GENERATION_CALLS
+                    and monotonic() < deadline
+                )
+                if not can_retry:
+                    raise GenerationFailed(disposition.user_message) from error
+                with connect(self.database_path) as connection:
+                    call_id = self._insert_call(connection, group_id)
+
+        raise AssertionError("generation loop must return or raise")
+
+    def _insert_call(self, connection: sqlite3.Connection, group_id: str) -> str:
+        call_id = str(uuid4())
+        connection.execute(
+            """INSERT INTO generation_calls
+               (id, generation_group_id, provider, model, outcome, created_at)
+               VALUES (?, ?, ?, ?, 'in_progress', ?)""",
+            (
+                call_id,
+                group_id,
+                self.generator.provider,
+                self.generator.model,
+                _utc_now(),
+            ),
+        )
+        return call_id
+
+    def _finish_call(
+        self,
+        call_id: str,
+        outcome: str,
+        error_message: str | None = None,
+        metrics: CallMetrics = CallMetrics(),
+    ) -> None:
+        with connect(self.database_path) as connection:
+            connection.execute(
+                """UPDATE generation_calls
+                   SET outcome = ?, error_message = ?, finished_at = ?,
+                       prompt_tokens = ?, completion_tokens = ?, total_tokens = ?,
+                       cost_usd = ?, pricing_reference = ?
+                   WHERE id = ? AND outcome = 'in_progress'""",
+                (
+                    outcome,
+                    error_message,
+                    _utc_now(),
+                    metrics.prompt_tokens,
+                    metrics.completion_tokens,
+                    metrics.total_tokens,
+                    metrics.cost_usd,
+                    metrics.pricing_reference,
+                    call_id,
+                ),
+            )
+
+
+def _cost_from_counts(row: sqlite3.Row) -> CostSummary:
+    if row["known_calls"] == 0:
+        return CostSummary(status="unavailable")
+    return CostSummary(
+        status="partial" if row["known_calls"] < row["calls"] else "known",
+        known_usd=row["known_usd"],
+    )
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()

@@ -1,6 +1,6 @@
 # AI English Tutor — Specifica MVP
 
-**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](MVP-GRILLING.md) e al piano completato delle [spiegazioni grammaticali](GRAMMAR-EXPLANATIONS-PLAN.md). Attività in [tasks.md](tasks.md); programma e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
+**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](../../MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](../../MVP-GRILLING.md) e al piano completato delle [spiegazioni grammaticali](../../GRAMMAR-EXPLANATIONS-PLAN.md). Attività in [tasks.md](../../tasks.md); programma e fonti in [A1-CURRICULUM.md](../../A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
 
 ## 1. Obiettivo e confini
 
@@ -8,7 +8,7 @@ Creare un tutor di grammatica inglese da usare personalmente e presentare su Git
 
 Applicazione web locale per un solo studente, senza account. Livello A1 fisso; interfaccia e spiegazioni in italiano, esempi ed esercizi in inglese. L'MVP copre tutte le unità di grammatica A1 dell'inventario didattico documentato nella ricerca, non soltanto i cinque argomenti della prima bozza.
 
-La copertura è **grammaticale**: il completamento del percorso non certifica il livello CEFR A1 e non valuta conversazione, ascolto o scrittura libera. La distinzione tra descrittori CEFR e inventario grammaticale è documentata nelle [fonti del curriculum](A1-CURRICULUM.md).
+La copertura è **grammaticale**: il completamento del percorso non certifica il livello CEFR A1 e non valuta conversazione, ascolto o scrittura libera. La distinzione tra descrittori CEFR e inventario grammaticale è documentata nelle [fonti del curriculum](../../A1-CURRICULUM.md).
 
 ## 2. Lezione e durata
 
@@ -35,7 +35,7 @@ Dopo l'ultima unità superata, mostrare «Percorso di grammatica A1 completato»
 
 ## 4. Curriculum, valutazione e storico
 
-Il curriculum ordinato è definito in [A1-CURRICULUM.md](A1-CURRICULUM.md) e sarà tradotto in un unico file JSON versionato. Ogni unità ha identificativo stabile, titolo e obiettivo; la posizione nell'elenco determina l'ordine. Il modello non sceglie argomenti, livello o progressione.
+Il curriculum ordinato è definito in [A1-CURRICULUM.md](../../A1-CURRICULUM.md) e sarà tradotto in un unico file JSON versionato. Ogni unità ha identificativo stabile, titolo e obiettivo; la posizione nell'elenco determina l'ordine. Il modello non sceglie argomenti, livello o progressione.
 
 - Proporre la prima unità non ancora superata; una lezione attiva ha precedenza sulla nuova generazione.
 - Punteggio: `corrette / 6 × 100`, arrotondato all'intero solo per la visualizzazione.
@@ -58,7 +58,7 @@ Usare **LiteLLM Python SDK** direttamente come client comune, con un solo provid
 
 Durante lo sviluppo il provider è stato rinviato e i test hanno usato risposte
 simulate; il collaudo finale ha verificato DeepSeek `deepseek-flash`, come
-documentato in [MVP-VALIDATION.md](MVP-VALIDATION.md). Senza configurazione,
+documentato in [MVP-VALIDATION.md](../../MVP-VALIDATION.md). Senza configurazione,
 l'app deve comunque mostrare storico e lezioni già salvate e spiegare perché non
 può crearne di nuove.
 

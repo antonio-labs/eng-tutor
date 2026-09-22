@@ -1,5 +1,4 @@
 import os
-from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID
 
@@ -7,8 +6,14 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.curriculum import load_curriculum
-from app.generation import GenerationFailed, GenerationUnavailable, LiteLLMGenerator
+from app.course import A1Course, load_course
+from app.generation import (
+    GenerationFailed,
+    GenerationInProgress,
+    GenerationUnavailable,
+    LiteLLMGenerator,
+    PracticeGenerator,
+)
 from app.models import (
     AnswerSubmission,
     CompletedLesson,
@@ -17,18 +22,12 @@ from app.models import (
     FailedGeneration,
     HistoryItem,
     LearningSummary,
-    LessonContent,
     LessonSession,
 )
-from app.service import (
-    GenerationInProgress,
-    LessonNotFound,
-    LessonStateError,
-    TutorService,
-)
+from app.service import LessonNotFound, LessonStateError, TutorService
 
 
-curriculum = load_curriculum()
+DEFAULT_COURSE = load_course()
 STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -36,17 +35,14 @@ def root() -> dict[str, str | int]:
     return {
         "name": "AI English Tutor",
         "status": "ok",
-        "curriculum_units": len(curriculum),
+        "curriculum_units": len(DEFAULT_COURSE),
     }
-
-
-def get_curriculum() -> list[CurriculumUnit]:
-    return curriculum
 
 
 def create_app(
     database_path: Path | None = None,
-    generator: Callable[[CurriculumUnit], LessonContent] | None = None,
+    generator: PracticeGenerator | None = None,
+    selected_course: A1Course | None = None,
 ) -> FastAPI:
     application = FastAPI(title="AI English Tutor", version="0.1.0")
     path = database_path or Path(os.getenv("DATABASE_PATH", "data/tutor.db"))
@@ -55,7 +51,8 @@ def create_app(
             generator = LiteLLMGenerator.from_env()
         except GenerationUnavailable:
             generator = None
-    service = TutorService(path, generator)
+    active_course = selected_course or DEFAULT_COURSE
+    service = TutorService(path, generator, active_course)
 
     application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -64,12 +61,9 @@ def create_app(
         return FileResponse(STATIC_DIR / "index.html")
 
     application.add_api_route("/api/health", root, methods=["GET"])
-    application.add_api_route(
-        "/api/curriculum",
-        get_curriculum,
-        methods=["GET"],
-        response_model=list[CurriculumUnit],
-    )
+    @application.get("/api/curriculum", response_model=list[CurriculumUnit])
+    def course_units() -> list[CurriculumUnit]:
+        return active_course.units
 
     @application.get("/api/summary", response_model=LearningSummary)
     def get_summary() -> LearningSummary:

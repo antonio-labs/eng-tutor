@@ -3,13 +3,19 @@ from threading import Event
 
 import pytest
 
-from app.curriculum import load_sample_lesson
+from app.course import load_sample_lesson
+from app.generation import (
+    CallMetrics,
+    GenerationInProgress,
+    GenerationOutput,
+    SampleGenerator,
+)
 from app.main import create_app
-from app.service import GenerationInProgress, LessonStateError, generate_sample
+from app.service import LessonStateError
 
 
 def test_start_saves_then_resumes_and_summary_uses_curriculum_total(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     service = app.state.tutor_service
 
     first = service.start_or_resume()
@@ -31,12 +37,19 @@ def test_concurrent_starts_do_not_run_two_generators(tmp_path) -> None:
     entered = Event()
     release = Event()
 
-    def slow_generator(unit):
-        entered.set()
-        assert release.wait(timeout=2)
-        return load_sample_lesson().model_copy(update={"unit_id": unit.id})
+    class SlowGenerator:
+        provider = "mock"
+        model = "slow-sample"
 
-    app = create_app(tmp_path / "tutor.db", slow_generator)
+        def generate_once(self, unit_content, timeout):
+            entered.set()
+            assert release.wait(timeout=2)
+            return GenerationOutput(
+                load_sample_lesson(unit_content),
+                CallMetrics(),
+            )
+
+    app = create_app(tmp_path / "tutor.db", SlowGenerator())
     service = app.state.tutor_service
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -50,7 +63,7 @@ def test_concurrent_starts_do_not_run_two_generators(tmp_path) -> None:
 
 
 def test_lesson_routes_are_exposed(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     assert {route.path for route in app.routes} >= {
         "/api/summary",
         "/api/lessons/start",
@@ -63,7 +76,7 @@ def test_lesson_routes_are_exposed(tmp_path) -> None:
 
 
 def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     service = app.state.tutor_service
     lesson = service.start_or_resume()
     assert lesson is not None
@@ -85,13 +98,14 @@ def test_submission_is_validated_saved_atomically_and_idempotent(tmp_path) -> No
     )
 
     assert completed.result.correct_answers == 6
+    assert completed.result.total_exercises == 6
     assert duplicate == completed
     assert service.summary().completed_units == 1
     assert service.summary().next_unit and service.summary().next_unit.id == "A1-02"
 
 
 def test_discard_preserves_cost_and_does_not_advance(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     service = app.state.tutor_service
     first = service.start_or_resume()
     assert first is not None
@@ -111,7 +125,7 @@ def test_discard_preserves_cost_and_does_not_advance(tmp_path) -> None:
 
 
 def test_history_reopens_completed_results_and_rejects_completed_discard(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     service = app.state.tutor_service
     lesson = service.start_or_resume()
     assert lesson is not None
@@ -124,5 +138,6 @@ def test_history_reopens_completed_results_and_rejects_completed_discard(tmp_pat
     assert service.get_result(lesson.id) == completed
     assert service.history()[0].status == "completed"
     assert service.history()[0].correct_answers == 6
+    assert service.history()[0].total_exercises == 6
     with pytest.raises(LessonStateError):
         service.discard_lesson(lesson.id)

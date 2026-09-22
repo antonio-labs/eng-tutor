@@ -1,98 +1,60 @@
-import re
 from pathlib import Path
+from shutil import copytree
 
 import pytest
 from pydantic import ValidationError
 
-from app import curriculum
-from app.curriculum import (
-    load_curriculum,
-    load_explanation_markdown,
-    load_sample_lesson,
-    next_unit,
-)
-from app.grading import grade_lesson
+from app.assessment import grade_lesson, next_unit
+from app.course import DATA_DIR, load_course, load_sample_lesson
 from app.main import app, root
 from app.models import AttemptResult, Exercise, LessonContent
 
 
-REQUIRED_EXPLANATION_SECTIONS = [
-    "Quando si usa",
-    "Come si forma",
-    "Attenzione",
-    "Errori comuni",
-]
-FORBIDDEN_MARKDOWN = {
-    "HTML": r"</?[A-Za-z][^>]*>",
-    "immagini o link": r"!?\[[^\]\n]+\]\([^\)\n]+\)",
-    "titoli non supportati": r"(?m)^#{1,2}\s|^#{4,}\s",
-    "liste numerate": r"(?m)^\s*\d+[.)]\s",
-    "blocchi di codice": r"(?m)^```",
-    "tabelle": r"(?m)^\s*\|",
-    "testo barrato": r"~~",
-    "corsivo con asterischi": r"(?<!\*)\*(?!\*)[^*\n]+\*(?!\*)",
-    "corsivo con underscore": r"(?<!_)_(?!_)[^_\n]+_(?!_)",
-}
-
-
-def test_curriculum_matches_documented_coverage() -> None:
-    units = load_curriculum()
+def test_course_matches_documented_coverage() -> None:
+    units = load_course().units
     source_rows = []
-    for line in (Path(__file__).parents[1] / "A1-CURRICULUM.md").read_text().splitlines():
+    curriculum_document = Path(__file__).parents[1] / "A1-CURRICULUM.md"
+    for line in curriculum_document.read_text().splitlines():
         if line.startswith("| A1-"):
             _, unit_id, title, objective, _, _ = [cell.strip() for cell in line.split("|")]
             source_rows.append((unit_id, title.replace("*", ""), objective))
 
     assert len(units) == 36
-    assert [unit.id for unit in units] == [f"A1-{number:02}" for number in range(1, 37)]
-    assert len({unit.id for unit in units}) == 36
+    assert [unit.id for unit in units] == [
+        f"A1-{number:02}" for number in range(1, 37)
+    ]
     assert all(unit.title and unit.objective for unit in units)
     assert [(unit.id, unit.title, unit.objective) for unit in units] == source_rows
 
 
-def test_explanation_loader_validates_id_file_and_content(
-    tmp_path, monkeypatch
-) -> None:
-    unit_id = load_curriculum()[0].id
-    content = "### Quando si usa\n\nContenuto verificato.\n"
-    monkeypatch.setattr(curriculum, "EXPLANATIONS_DIR", tmp_path)
-    (tmp_path / f"{unit_id}.md").write_text(content, encoding="utf-8")
+def test_course_loader_validates_the_whole_corpus(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    copytree(DATA_DIR, data_dir)
+    course = load_course(data_dir)
 
-    assert load_explanation_markdown(unit_id) == content
+    assert course.content_for("A1-01").explanation.startswith("### Quando si usa")
     with pytest.raises(ValueError, match="A1-99"):
-        load_explanation_markdown("A1-99")
+        course.content_for("A1-99")
 
-    (tmp_path / f"{unit_id}.md").unlink()
-    with pytest.raises(FileNotFoundError, match=unit_id):
-        load_explanation_markdown(unit_id)
+    source = data_dir / "grammar_explanations" / "A1-01.md"
+    source.write_text("### Quando si usa\n\nSolo una sezione.\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="sections.*A1-01"):
+        load_course(data_dir)
 
-    (tmp_path / f"{unit_id}.md").write_text(" \n", encoding="utf-8")
-    with pytest.raises(ValueError, match=unit_id):
-        load_explanation_markdown(unit_id)
+    copytree(DATA_DIR, data_dir, dirs_exist_ok=True)
+    source = data_dir / "grammar_explanations" / "A1-01.md"
+    source.write_text(
+        source.read_text(encoding="utf-8")
+        + "\n[link non supportato](https://example.com)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="unsupported Markdown.*A1-01"):
+        load_course(data_dir)
 
-
-def test_explanations_cover_curriculum_and_use_supported_markdown() -> None:
-    unit_ids = {unit.id for unit in load_curriculum()}
-    files = {
-        path.stem: path for path in curriculum.EXPLANATIONS_DIR.glob("*.md")
-    }
-
-    assert set(files) == unit_ids
-    for unit_id in sorted(unit_ids):
-        content = load_explanation_markdown(unit_id)
-        sections = list(re.finditer(r"(?m)^### (.+)$", content))
-
-        assert [match.group(1) for match in sections] == REQUIRED_EXPLANATION_SECTIONS
-        assert not content[: sections[0].start()].strip()
-        for index, section in enumerate(sections):
-            end = sections[index + 1].start() if index + 1 < len(sections) else None
-            assert content[section.end() : end].strip(), (
-                f"{unit_id}: sezione vuota {section.group(1)}"
-            )
-        for feature, pattern in FORBIDDEN_MARKDOWN.items():
-            assert not re.search(pattern, content), (
-                f"{unit_id}: Markdown non supportato ({feature})"
-            )
+    copytree(DATA_DIR, data_dir, dirs_exist_ok=True)
+    (data_dir / "grammar_explanations" / "A1-36.md").unlink()
+    with pytest.raises(ValueError, match="missing=.*A1-36"):
+        load_course(data_dir)
 
 
 def test_sample_lesson_is_valid_and_hides_answers_from_browser() -> None:
@@ -108,7 +70,9 @@ def test_sample_lesson_is_valid_and_hides_answers_from_browser() -> None:
         "review_minutes": 3,
         "total_minutes": 15,
     }
-    assert all("correct_option" not in item for item in browser_payload["exercises"])
+    assert all(
+        "correct_option" not in item for item in browser_payload["exercises"]
+    )
     assert all("rationale" not in item for item in browser_payload["exercises"])
 
 
@@ -132,7 +96,7 @@ def test_lesson_validation_rejects_invalid_structure() -> None:
     ("wrong_answers", "correct", "percentage", "passed"),
     [(2, 4, 67, False), (1, 5, 83, True)],
 )
-def test_grading_uses_correct_count_for_threshold(
+def test_assessment_uses_fixed_a1_rules(
     wrong_answers: int, correct: int, percentage: int, passed: bool
 ) -> None:
     lesson = load_sample_lesson()
@@ -143,6 +107,7 @@ def test_grading_uses_correct_count_for_threshold(
     result = grade_lesson(lesson, answers)
 
     assert result.correct_answers == correct
+    assert result.total_exercises == 6
     assert result.percentage == percentage
     assert result.passed is passed
     assert all(answer.selected_answer for answer in result.answers)
@@ -150,10 +115,12 @@ def test_grading_uses_correct_count_for_threshold(
 
 
 def test_progression_handles_no_results_retries_and_completion() -> None:
-    units = load_curriculum()
+    units = load_course().units
 
     assert next_unit(units, []) == units[0]
-    assert next_unit(units, [AttemptResult(unit_id="A1-01", correct_answers=4)]) == units[0]
+    assert next_unit(
+        units, [AttemptResult(unit_id="A1-01", correct_answers=4)]
+    ) == units[0]
     assert next_unit(
         units,
         [
@@ -167,6 +134,6 @@ def test_progression_handles_no_results_retries_and_completion() -> None:
     ) is None
 
 
-def test_local_api_starts_with_curriculum() -> None:
+def test_local_api_starts_with_course() -> None:
     assert root()["curriculum_units"] == 36
     assert {route.path for route in app.routes} >= {"/", "/api/curriculum", "/docs"}

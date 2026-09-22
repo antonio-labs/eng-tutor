@@ -1,6 +1,6 @@
 # AI English Tutor — Attività di sviluppo MVP
 
-Riferimento operativo: [MVP-SPEC.md](MVP-SPEC.md). Curriculum: [A1-CURRICULUM.md](A1-CURRICULUM.md). Motivazioni e decisioni: [MVP-GRILLING.md](MVP-GRILLING.md).
+Riferimento operativo: [MVP-SPEC.md](docs/specs/MVP-SPEC.md). Curriculum: [A1-CURRICULUM.md](A1-CURRICULUM.md). Motivazioni e decisioni: [MVP-GRILLING.md](MVP-GRILLING.md).
 
 Il piano incrementale per rendere deterministiche e visualizzare in Markdown le
 36 spiegazioni grammaticali è in
@@ -58,7 +58,7 @@ Collaudo, misure, revisione dei contenuti e limiti sono registrati in
 - [x] **5.1 — Configurazione successiva dell'autore.** Quando viene scelto il provider, configurare un modello supportato e verificare autenticazione, capacità di output, consumo restituito e tariffe nella documentazione ufficiale aggiornata. Registrare modello, data, versione del client e fonte dei prezzi, mai la chiave.
 - [x] **5.2 — Prova reale completa.** Generare e completare una lezione, controllare qualità dell'output, tempo totale e costo stimato. Verificare inoltre che una lezione già salvata sia consultabile e correggibile senza connessione e che un nuovo avvio non lo sia.
 - [x] **5.3 — Revisione dell'autore.** Controllare un piccolo campione per ciascuna delle 36 unità: pertinenza, vocabolario, soluzione unica e motivazioni corrette. Annotare gli errori, correggere prompt/vincoli e ricontrollare le parti coinvolte. La validazione automatica dello schema non sostituisce questa prova.
-- [x] **5.4 — Controllo finale della spec.** Percorrere i criteri di completamento di `MVP-SPEC.md`, riportando esito e limiti effettivi. Verificare che il client, la documentazione e l'interfaccia non dichiarino provider non testati o un raggiungimento certificato di A1.
+- [x] **5.4 — Controllo finale della spec.** Percorrere i criteri di completamento di `docs/specs/MVP-SPEC.md`, riportando esito e limiti effettivi. Verificare che il client, la documentazione e l'interfaccia non dichiarino provider non testati o un raggiungimento certificato di A1.
 
 **Risultato verificabile:** esiste evidenza della prova sul provider configurato e della revisione manuale dei contenuti. Se il provider non è ancora stato scelto, lasciare queste attività aperte senza bloccare i blocchi precedenti o la documentazione.
 

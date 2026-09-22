@@ -243,7 +243,7 @@ function buildHistory(history) {
         "td",
         "",
         item.status === "completed"
-          ? `${item.correct_answers}/6, ${item.percentage}%`
+          ? `${item.correct_answers}/${item.total_exercises}, ${item.percentage}%`
           : "Scartata",
       ),
       element("td", "", costLabel(item.cost)),
@@ -385,7 +385,11 @@ async function renderLesson(id) {
   const meta = element("aside", "meta-panel");
   meta.append(
     element("strong", "", "Sessione breve"),
-    element("p", "", "Spiegazione, tre esempi e sei esercizi."),
+    element(
+      "p",
+      "",
+      `Spiegazione, tre esempi e ${lesson.content.exercises.length} esercizi.`,
+    ),
     element("p", "", `${lesson.content.timing.total_minutes} minuti stimati`),
   );
   header.append(copy, meta);
@@ -511,7 +515,11 @@ async function renderResult(id) {
   );
   const score = element("aside", "meta-panel");
   score.append(
-    element("p", "score", `${completed.result.correct_answers}/6`),
+    element(
+      "p",
+      "score",
+      `${completed.result.correct_answers}/${completed.result.total_exercises}`,
+    ),
     element("p", "", `${completed.result.percentage}% corretto`),
     element("p", "", costLabel(completed.cost)),
   );

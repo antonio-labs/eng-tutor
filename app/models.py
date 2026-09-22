@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 OptionIndex = Annotated[int, Field(strict=True, ge=0, le=2)]
+EXERCISES_PER_LESSON = 6
 PASSING_CORRECT_ANSWERS = 5
 
 
@@ -16,6 +17,11 @@ class CurriculumUnit(Model):
     id: NonEmptyText
     title: NonEmptyText
     objective: NonEmptyText
+
+
+class CourseUnitContent(Model):
+    unit: CurriculumUnit
+    explanation: NonEmptyText
 
 
 class LessonExample(Model):
@@ -41,7 +47,10 @@ class LessonContent(Model):
     unit_id: NonEmptyText
     explanation: NonEmptyText
     examples: list[LessonExample] = Field(min_length=3, max_length=3)
-    exercises: list[Exercise] = Field(min_length=6, max_length=6)
+    exercises: list[Exercise] = Field(
+        min_length=EXERCISES_PER_LESSON,
+        max_length=EXERCISES_PER_LESSON,
+    )
 
     @model_validator(mode="after")
     def exercise_ids_are_unique(self) -> "LessonContent":
@@ -114,7 +123,8 @@ class AnswerResult(Model):
 class LessonResult(Model):
     unit_id: NonEmptyText
     answers: list[AnswerResult]
-    correct_answers: int = Field(ge=0, le=6)
+    correct_answers: int = Field(ge=0, le=EXERCISES_PER_LESSON)
+    total_exercises: int = Field(gt=0)
     percentage: int = Field(ge=0, le=100)
     passed: bool
 
@@ -149,7 +159,10 @@ class HistoryItem(Model):
     id: NonEmptyText
     unit: CurriculumUnit
     status: Literal["completed", "discarded"]
-    correct_answers: int | None = Field(default=None, ge=0, le=6)
+    correct_answers: int | None = Field(
+        default=None, ge=0, le=EXERCISES_PER_LESSON
+    )
+    total_exercises: int | None = Field(default=None, gt=0)
     percentage: int | None = Field(default=None, ge=0, le=100)
     created_at: NonEmptyText
     finished_at: NonEmptyText
@@ -168,4 +181,4 @@ class FailedGeneration(Model):
 
 class AttemptResult(Model):
     unit_id: NonEmptyText
-    correct_answers: int = Field(ge=0, le=6)
+    correct_answers: int = Field(ge=0, le=EXERCISES_PER_LESSON)

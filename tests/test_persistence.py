@@ -1,12 +1,12 @@
 import sqlite3
+from shutil import copytree
 
 import pytest
 
-from app import curriculum
-from app.curriculum import load_sample_lesson
+from app.course import DATA_DIR, load_course, load_sample_lesson
 from app.database import connect
+from app.generation import CallMetrics, GenerationOutput, SampleGenerator
 from app.main import create_app
-from app.service import generate_sample
 
 
 def correct_answers() -> dict[str, int]:
@@ -16,11 +16,11 @@ def correct_answers() -> dict[str, int]:
 
 def test_active_lesson_and_result_survive_restart_without_exposing_answers(tmp_path) -> None:
     database_path = tmp_path / "tutor.db"
-    first_process = create_app(database_path, generate_sample).state.tutor_service
+    first_process = create_app(database_path, SampleGenerator()).state.tutor_service
     started = first_process.start_or_resume()
     assert started is not None
 
-    restarted = create_app(database_path, generate_sample).state.tutor_service
+    restarted = create_app(database_path, SampleGenerator()).state.tutor_service
     resumed = restarted.start_or_resume()
     assert resumed is not None
     assert resumed.id == started.id
@@ -28,7 +28,9 @@ def test_active_lesson_and_result_survive_restart_without_exposing_answers(tmp_p
     assert "rationale" not in resumed.model_dump_json()
 
     completed = restarted.submit_lesson(resumed.id, correct_answers())
-    after_lost_response = create_app(database_path, generate_sample).state.tutor_service
+    after_lost_response = create_app(
+        database_path, SampleGenerator()
+    ).state.tutor_service
     repeated = after_lost_response.submit_lesson(resumed.id, {"ignored": 0})
 
     assert repeated == completed
@@ -37,7 +39,7 @@ def test_active_lesson_and_result_survive_restart_without_exposing_answers(tmp_p
 
 def test_database_save_error_leaves_generation_recoverable(tmp_path) -> None:
     database_path = tmp_path / "tutor.db"
-    service = create_app(database_path, generate_sample).state.tutor_service
+    service = create_app(database_path, SampleGenerator()).state.tutor_service
     with connect(database_path) as connection:
         connection.execute(
             """CREATE TRIGGER fail_lesson_save BEFORE INSERT ON lessons
@@ -59,12 +61,12 @@ def test_database_save_error_leaves_generation_recoverable(tmp_path) -> None:
 
 def test_discard_and_next_start_survive_restart(tmp_path) -> None:
     database_path = tmp_path / "tutor.db"
-    service = create_app(database_path, generate_sample).state.tutor_service
+    service = create_app(database_path, SampleGenerator()).state.tutor_service
     lesson = service.start_or_resume()
     assert lesson is not None
     service.discard_lesson(lesson.id)
 
-    restarted = create_app(database_path, generate_sample).state.tutor_service
+    restarted = create_app(database_path, SampleGenerator()).state.tutor_service
     replacement = restarted.start_or_resume()
 
     assert replacement is not None
@@ -80,16 +82,25 @@ def test_plain_text_historical_explanation_survives_restart(tmp_path) -> None:
         update={"explanation": historical_explanation}
     )
 
-    def generate_historical(unit):
-        return historical_lesson.model_copy(update={"unit_id": unit.id})
+    class HistoricalGenerator:
+        provider = "mock"
+        model = "historical-sample"
+
+        def generate_once(self, unit_content, timeout):
+            return GenerationOutput(
+                historical_lesson.model_copy(
+                    update={"unit_id": unit_content.unit.id}
+                ),
+                CallMetrics(),
+            )
 
     first_process = create_app(
-        database_path, generate_historical
+        database_path, HistoricalGenerator()
     ).state.tutor_service
     started = first_process.start_or_resume()
     assert started is not None
 
-    restarted = create_app(database_path, generate_sample).state.tutor_service
+    restarted = create_app(database_path, SampleGenerator()).state.tutor_service
     resumed = restarted.get_lesson(started.id)
 
     assert resumed is not None
@@ -98,16 +109,20 @@ def test_plain_text_historical_explanation_survives_restart(tmp_path) -> None:
     assert "rationale" not in resumed.model_dump_json()
 
 
-def test_saved_explanation_is_immutable_snapshot(tmp_path, monkeypatch) -> None:
-    explanations_dir = tmp_path / "grammar_explanations"
-    explanations_dir.mkdir()
+def test_saved_explanation_is_immutable_snapshot(tmp_path) -> None:
+    data_dir = tmp_path / "course-data"
+    copytree(DATA_DIR, data_dir)
+    explanations_dir = data_dir / "grammar_explanations"
     source = explanations_dir / "A1-01.md"
-    original = "### Quando si usa\n\nVersione originale verificata."
-    source.write_text(original, encoding="utf-8")
-    monkeypatch.setattr(curriculum, "EXPLANATIONS_DIR", explanations_dir)
+    original = source.read_text(encoding="utf-8")
+    selected_course = load_course(data_dir)
 
     database_path = tmp_path / "tutor.db"
-    first_process = create_app(database_path, generate_sample).state.tutor_service
+    first_process = create_app(
+        database_path,
+        SampleGenerator(),
+        selected_course,
+    ).state.tutor_service
     started = first_process.start_or_resume()
     assert started is not None
 
@@ -115,8 +130,8 @@ def test_saved_explanation_is_immutable_snapshot(tmp_path, monkeypatch) -> None:
         "### Quando si usa\n\nVersione modificata dopo il salvataggio.",
         encoding="utf-8",
     )
-    restarted = create_app(database_path, generate_sample).state.tutor_service
+    restarted = create_app(database_path, SampleGenerator()).state.tutor_service
     resumed = restarted.get_lesson(started.id)
 
     assert resumed is not None
-    assert resumed.content.explanation == original
+    assert resumed.content.explanation == original.strip()

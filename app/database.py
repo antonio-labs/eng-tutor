@@ -1,18 +1,22 @@
 import sqlite3
 from pathlib import Path
 
+from app.models import EXERCISES_PER_LESSON
+
 
 DEFAULT_DATABASE_PATH = Path("data/tutor.db")
 
 
-SCHEMA = """
+SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     unit_id TEXT NOT NULL,
     content_json TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'discarded')),
     answers_json TEXT,
-    correct_answers INTEGER CHECK (correct_answers BETWEEN 0 AND 6),
+    correct_answers INTEGER CHECK (
+        correct_answers BETWEEN 0 AND {EXERCISES_PER_LESSON}
+    ),
     created_at TEXT NOT NULL,
     completed_at TEXT,
     discarded_at TEXT

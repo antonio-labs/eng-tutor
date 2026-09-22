@@ -1,8 +1,11 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 from app.models import (
+    EXERCISES_PER_LESSON,
     PASSING_CORRECT_ANSWERS,
     AnswerResult,
+    AttemptResult,
+    CurriculumUnit,
     LessonContent,
     LessonResult,
 )
@@ -39,6 +42,26 @@ def grade_lesson(lesson: LessonContent, answers: Mapping[str, int]) -> LessonRes
         unit_id=lesson.unit_id,
         answers=results,
         correct_answers=correct_answers,
-        percentage=round(correct_answers / len(results) * 100),
+        total_exercises=EXERCISES_PER_LESSON,
+        percentage=score_percentage(correct_answers),
         passed=correct_answers >= PASSING_CORRECT_ANSWERS,
     )
+
+
+def passed_unit_ids(attempts: Iterable[AttemptResult]) -> set[str]:
+    return {
+        attempt.unit_id
+        for attempt in attempts
+        if attempt.correct_answers >= PASSING_CORRECT_ANSWERS
+    }
+
+
+def next_unit(
+    curriculum: Iterable[CurriculumUnit], attempts: Iterable[AttemptResult]
+) -> CurriculumUnit | None:
+    passed = passed_unit_ids(attempts)
+    return next((unit for unit in curriculum if unit.id not in passed), None)
+
+
+def score_percentage(correct_answers: int) -> int:
+    return round(correct_answers / EXERCISES_PER_LESSON * 100)

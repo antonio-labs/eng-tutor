@@ -1,6 +1,6 @@
 # Curriculum grammaticale A1 dell'MVP
 
-Ricerca verificata il **19 settembre 2026**. Versione iniziale: **36 unità**, in ordine fisso. Questo documento definisce i contenuti; [MVP-SPEC.md](MVP-SPEC.md) definisce il comportamento dell'app.
+Ricerca verificata il **19 settembre 2026**. Versione iniziale: **36 unità**, in ordine fisso. Questo documento definisce i contenuti; [MVP-SPEC.md](docs/specs/MVP-SPEC.md) definisce il comportamento dell'app.
 
 ## Perimetro e criterio di completezza
 

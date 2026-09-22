@@ -2,17 +2,18 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from app.curriculum import load_curriculum, load_sample_lesson
+from app.course import load_course, load_sample_lesson
 from app.database import connect
+from app.generation import SampleGenerator
 from app.main import create_app
-from app.service import generate_sample, utc_now
+from app.service import utc_now
 
 
 STATIC_DIR = Path(__file__).parents[1] / "app" / "static"
 
 
 def test_app_serves_three_view_frontend(tmp_path) -> None:
-    app = create_app(tmp_path / "tutor.db", generate_sample)
+    app = create_app(tmp_path / "tutor.db", SampleGenerator())
     paths = {route.path for route in app.routes}
     html = (STATIC_DIR / "index.html").read_text()
     javascript = (STATIC_DIR / "app.js").read_text()
@@ -32,18 +33,19 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
         for tag in ['"h3"', '"ul"', '"blockquote"', '"strong"', '"code"']
     )
     assert "innerHTML" not in javascript
+    assert "correct_answers}/6" not in javascript
     assert "—" not in html + javascript
 
 
 def test_separate_database_can_render_completed_curriculum_state(tmp_path) -> None:
     database_path = tmp_path / "completed-curriculum.db"
-    service = create_app(database_path, generate_sample).state.tutor_service
+    service = create_app(database_path, SampleGenerator()).state.tutor_service
     lesson = load_sample_lesson()
     answers = {
         exercise.id: exercise.correct_option for exercise in lesson.exercises
     }
     with connect(database_path) as connection:
-        for unit in load_curriculum():
+        for unit in load_course().units:
             content = lesson.model_copy(update={"unit_id": unit.id})
             connection.execute(
                 """INSERT INTO lessons

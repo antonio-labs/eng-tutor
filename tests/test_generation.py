@@ -10,11 +10,7 @@ from litellm.exceptions import (
 )
 from pydantic import ValidationError
 
-from app.curriculum import (
-    load_curriculum,
-    load_explanation_markdown,
-    load_sample_lesson,
-)
+from app.course import load_course, load_sample_lesson
 from app.database import connect, initialize_database
 from app.generation import (
     CallMetrics,
@@ -24,11 +20,12 @@ from app.generation import (
     InvalidGenerationResponse,
     LLMConfig,
     LiteLLMGenerator,
+    SampleGenerator,
     classify_generation_error,
 )
 from app.main import create_app
 from app.models import LessonContent
-from app.service import TutorService, generate_sample, utc_now
+from app.service import TutorService, utc_now
 
 
 def sample_practice_json() -> str:
@@ -46,7 +43,7 @@ class SequenceGenerator:
         self.calls = 0
         self.timeouts = []
 
-    def generate_once(self, unit, timeout):
+    def generate_once(self, unit_content, timeout):
         self.calls += 1
         self.timeouts.append(timeout)
         effect = next(self.effects)
@@ -54,10 +51,23 @@ class SequenceGenerator:
             raise effect
         if isinstance(effect, GenerationOutput):
             return GenerationOutput(
-                content=effect.content.model_copy(update={"unit_id": unit.id}),
+                content=effect.content.model_copy(
+                    update={
+                        "unit_id": unit_content.unit.id,
+                        "explanation": unit_content.explanation,
+                    }
+                ),
                 metrics=effect.metrics,
             )
-        return effect.model_copy(update={"unit_id": unit.id})
+        return GenerationOutput(
+            effect.model_copy(
+                update={
+                    "unit_id": unit_content.unit.id,
+                    "explanation": unit_content.explanation,
+                }
+            ),
+            CallMetrics(),
+        )
 
 
 def test_llm_configuration_reads_backend_environment(monkeypatch) -> None:
@@ -81,7 +91,9 @@ def test_missing_configuration_blocks_only_new_generation(tmp_path, monkeypatch)
     monkeypatch.delenv("LLM_API_BASE", raising=False)
     database_path = tmp_path / "tutor.db"
 
-    configured_for_test = create_app(database_path, generate_sample).state.tutor_service
+    configured_for_test = create_app(
+        database_path, SampleGenerator()
+    ).state.tutor_service
     saved = configured_for_test.start_or_resume()
     assert saved is not None
 
@@ -100,7 +112,8 @@ def test_missing_configuration_blocks_only_new_generation(tmp_path, monkeypatch)
 
 def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) -> None:
     captured = {}
-    unit = load_curriculum()[1]
+    unit_content = load_course().content_for("A1-02")
+    unit = unit_content.unit
     payload = sample_practice_json()
 
     def fake_completion(**kwargs):
@@ -111,12 +124,12 @@ def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) ->
     monkeypatch.setattr("app.generation.completion", fake_completion)
     generator = LiteLLMGenerator(LLMConfig("provider/model", "test-key"))
 
-    lesson = generator(unit)
+    lesson = generator.generate_once(unit_content, timeout=30).content
     sent = json.loads(captured["messages"][0]["content"])
 
     sample = load_sample_lesson()
     assert lesson.unit_id == unit.id
-    assert lesson.explanation == load_explanation_markdown(unit.id).strip()
+    assert lesson.explanation == unit_content.explanation.strip()
     assert lesson.examples == sample.examples
     assert lesson.exercises == sample.exercises
     assert captured["response_format"] == {"type": "json_object"}
@@ -160,21 +173,21 @@ def test_generation_rejects_provider_identity_and_explanation(monkeypatch) -> No
 
     with pytest.raises(InvalidGenerationResponse):
         LiteLLMGenerator(LLMConfig("provider/model", "test-key")).generate_once(
-            load_curriculum()[0], timeout=30
+            load_course().content_for("A1-01"), timeout=30
         )
 
 
 def test_sample_generator_uses_curated_identity_and_explanation() -> None:
-    unit = load_curriculum()[2]
+    unit_content = load_course().content_for("A1-03")
 
-    lesson = generate_sample(unit)
+    lesson = SampleGenerator().generate_once(unit_content, timeout=30).content
 
-    assert lesson.unit_id == unit.id
-    assert lesson.explanation == load_explanation_markdown(unit.id).strip()
+    assert lesson.unit_id == unit_content.unit.id
+    assert lesson.explanation == unit_content.explanation
 
 
 def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> None:
-    unit = load_curriculum()[0]
+    unit_content = load_course().content_for("A1-01")
     response = SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -192,7 +205,7 @@ def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> No
 
     output = LiteLLMGenerator(
         LLMConfig("provider/model", "test-key")
-    ).generate_once(unit, timeout=30)
+    ).generate_once(unit_content, timeout=30)
 
     assert output.metrics == CallMetrics(
         prompt_tokens=120,
@@ -251,7 +264,7 @@ def test_malformed_json_then_valid_response_records_each_mocked_call(
     lesson = service.start_or_resume()
 
     assert lesson is not None
-    assert lesson.content.explanation == load_explanation_markdown("A1-01").strip()
+    assert lesson.content.explanation == load_course().content_for("A1-01").explanation
     assert calls == 2
     with connect(service.database_path) as connection:
         attempts = connection.execute(
@@ -281,7 +294,7 @@ def test_missing_usage_and_price_are_recorded_as_unavailable(monkeypatch) -> Non
 
     output = LiteLLMGenerator(
         LLMConfig("provider/model", "test-key")
-    ).generate_once(load_curriculum()[0], timeout=30)
+    ).generate_once(load_course().content_for("A1-01"), timeout=30)
 
     assert output.metrics == CallMetrics()
 
@@ -380,7 +393,7 @@ def test_interrupted_in_progress_call_becomes_unknown_on_restart(tmp_path) -> No
             (utc_now(),),
         )
 
-    TutorService(database_path, generate_sample)
+    TutorService(database_path, SampleGenerator())
 
     with connect(database_path) as connection:
         row = connection.execute(
@@ -457,7 +470,7 @@ def test_failed_generation_costs_remain_separate_from_lesson_history(tmp_path) -
     assert failed[0].cost.known_usd == pytest.approx(0.03)
 
 
-def test_grading_and_reading_saved_data_do_not_call_generator_again(tmp_path) -> None:
+def test_assessment_and_reading_saved_data_do_not_call_generator_again(tmp_path) -> None:
     generator = SequenceGenerator([load_sample_lesson()])
     service = TutorService(tmp_path / "tutor.db", generator)
     lesson = service.start_or_resume()

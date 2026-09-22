@@ -1,10 +1,10 @@
 # AI English Tutor — Decisioni e dubbi prima dello sviluppo
 
-Traccia di una sessione di grilling basata su [MVP-SPEC.md](MVP-SPEC.md) e sulla [visione originale](ai-english-tutor-mvp-spec.md).
+Traccia di una sessione di grilling basata su [MVP-SPEC.md](docs/specs/MVP-SPEC.md) e sulla [visione originale](docs/specs/ai-english-tutor-mvp-spec.md).
 
 Lo scopo è capire che cosa vogliamo verificare, quali compromessi accettiamo e come gestire i casi concreti. Le risposte dell'autore a D01–D21 sono state registrate. Per ogni domanda, **la decisione dell'autore prevale sulla raccomandazione iniziale**; D17–D21 risolvono e aggiornano i punti delle risposte precedenti.
 
-**Stato: chiarimenti conclusi per la pianificazione.** [MVP-SPEC.md](MVP-SPEC.md) contiene il perimetro allineato; [tasks.md](tasks.md) contiene le attività da sviluppare. Questo file conserva il ragionamento e le decisioni, non descrive funzionalità già implementate.
+**Stato: chiarimenti conclusi per la pianificazione.** [MVP-SPEC.md](docs/specs/MVP-SPEC.md) contiene il perimetro allineato; [tasks.md](tasks.md) contiene le attività da sviluppare. Questo file conserva il ragionamento e le decisioni, non descrive funzionalità già implementate.
 
 ## Come usarlo
 
@@ -294,4 +294,4 @@ Non serve prevedere ogni possibile evoluzione. Serve poter descrivere una sessio
 - [x] Uso locale da browser, persistenza dei dati e dipendenza dalla connessione per la generazione sono accettati.
 - [x] Utilità e opportunità di proseguire saranno giudicate personalmente dall'autore sulla base dei propri test, senza un protocollo obbligatorio imposto dall'app.
 
-Pianificazione allineata in [MVP-SPEC.md](MVP-SPEC.md), curriculum e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md), attività in [tasks.md](tasks.md). Il dataset per livello, l'eventuale RAG, più lezioni per argomento e i ripassi rimangono negli sviluppi successivi. La scelta del provider sarà una configurazione successiva, seguita dal collaudo reale previsto nelle attività.
+Pianificazione allineata in [MVP-SPEC.md](docs/specs/MVP-SPEC.md), curriculum e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md), attività in [tasks.md](tasks.md). Il dataset per livello, l'eventuale RAG, più lezioni per argomento e i ripassi rimangono negli sviluppi successivi. La scelta del provider sarà una configurazione successiva, seguita dal collaudo reale previsto nelle attività.
