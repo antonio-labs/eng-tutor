@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Any
 
-from litellm import completion, completion_cost, supports_response_schema
+from litellm import completion, completion_cost
 from litellm.exceptions import (
     APIConnectionError,
     APIError,
@@ -72,12 +72,20 @@ def classify_generation_error(error: Exception) -> ErrorDisposition:
         return ErrorDisposition(
             "timeout", True, "La generazione ha superato il tempo disponibile. Riprova."
         )
+    if isinstance(error, BudgetExceededError) or (
+        isinstance(error, BadRequestError)
+        and "insufficient balance" in str(error).lower()
+    ):
+        return ErrorDisposition(
+            "error",
+            False,
+            "Il saldo o il limite di spesa del provider non consente la generazione.",
+        )
     if isinstance(
         error,
         (
             AuthenticationError,
             BadRequestError,
-            BudgetExceededError,
             NotFoundError,
             PermissionDeniedError,
             UnsupportedParamsError,
@@ -152,22 +160,24 @@ class LiteLLMGenerator:
                 "objective": unit.objective,
             },
             "languages": {
-                "explanation_and_rationales": "Italian",
-                "examples_questions_and_options": "English",
+                "explanation_example_notes_and_rationales": "Italian",
+                "example_sentences_questions_and_options": "English",
             },
             "format": {
                 "instructions": (
-                    "Return only JSON. Keep vocabulary at A1 level. Create exactly "
-                    "three examples and six distinct multiple-choice questions with "
-                    "three distinct options, one correct option and one rationale each."
+                    "Return only JSON. Teach and test English grammar only; Italian "
+                    "is only for explanations, example notes and rationales. Keep "
+                    "every example sentence, question, option and correct answer in "
+                    "English and strictly within the unit objective. Keep vocabulary "
+                    "at A1 level. Create exactly three examples and six distinct, "
+                    "self-contained multiple-choice questions with three distinct "
+                    "options, exactly one unambiguously correct option and one "
+                    "rationale each. Do not use distractors that are valid under "
+                    "another plausible interpretation."
                 ),
                 "json_schema": LessonContent.model_json_schema(),
             },
         }
-        try:
-            native_schema = supports_response_schema(model=self.config.model)
-        except Exception:
-            native_schema = False
         kwargs: dict[str, Any] = {
             "model": self.config.model,
             "api_key": self.config.api_key,
@@ -177,9 +187,7 @@ class LiteLLMGenerator:
                     "content": json.dumps(prompt, ensure_ascii=False),
                 }
             ],
-            "response_format": (
-                LessonContent if native_schema else {"type": "json_object"}
-            ),
+            "response_format": {"type": "json_object"},
             "num_retries": 0,
             "timeout": timeout,
         }

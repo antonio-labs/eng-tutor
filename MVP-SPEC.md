@@ -1,6 +1,6 @@
 # AI English Tutor — Specifica MVP
 
-**Stato: pronta per lo sviluppo**, allineata alle decisioni D01–D21 di [MVP-GRILLING.md](MVP-GRILLING.md). Attività in [tasks.md](tasks.md); programma e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
+**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](MVP-GRILLING.md). Attività in [tasks.md](tasks.md); programma e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
 
 ## 1. Obiettivo e confini
 
@@ -51,7 +51,11 @@ Una richiesta genera tutta la lezione, comprese le motivazioni delle soluzioni. 
 
 Usare **LiteLLM Python SDK** direttamente come client comune, con un solo provider/modello attivo e configurazione sul backend: `LLM_MODEL`, `LLM_API_KEY` ed eventuale `LLM_API_BASE`. La sua interfaccia comune evita di implementare adattatori nel progetto; non serve avviare il suo gateway o router. La compatibilità riguarda i provider supportati dal client, con i requisiti di autenticazione del servizio scelto. [Documentazione LiteLLM](https://docs.litellm.ai/docs/).
 
-Il provider sarà scelto dall'autore in seguito. Durante lo sviluppo, usare risposte simulate nei test e una lezione di esempio nel collaudo del flusso; non presentarle come generazioni reali. Senza configurazione, l'app deve comunque mostrare storico e lezioni già salvate e spiegare perché non può crearne di nuove.
+Durante lo sviluppo il provider è stato rinviato e i test hanno usato risposte
+simulate; il collaudo finale ha verificato DeepSeek `deepseek-flash`, come
+documentato in [MVP-VALIDATION.md](MVP-VALIDATION.md). Senza configurazione,
+l'app deve comunque mostrare storico e lezioni già salvate e spiegare perché non
+può crearne di nuove.
 
 Il generatore richiede JSON con spiegazione, esempi ed esercizi; ogni esercizio contiene identificativo, domanda, opzioni, indice della soluzione e motivazione. Il backend valida sempre i dati con Pydantic: testi non vuoti, quantità previste, ID univoci, tre opzioni distinte e indice valido. Il formato strutturato nativo si usa quando supportato dal modello; la compatibilità del client non garantisce le medesime capacità di output per ogni provider. [Output strutturati LiteLLM](https://docs.litellm.ai/docs/completion/json_mode).
 
@@ -91,16 +95,16 @@ Lezioni salvate, correzione e storico funzionano senza connessione; la generazio
 
 ## 8. Criteri di completamento e documentazione
 
-- [ ] Tutte le unità del curriculum A1 documentato sono presenti nel JSON, nell'ordine previsto e con obiettivi verificabili.
-- [ ] Il flusso completo funziona: inizio/ripresa, lezione, invio, correzione, storico, avanzamento e conclusione.
-- [ ] Ogni lezione contiene il formato previsto e riporta 15 minuti stimati, senza obbligare l'utente ad aspettare.
-- [ ] Punteggi, invii non validi/duplicati, scarto e ripartenza rispettano le regole sopra; soluzioni non esposte prima dell'invio.
-- [ ] Progressi e lezioni sopravvivono al riavvio; errori del provider e del salvataggio non li alterano.
-- [ ] Client agnostico configurabile, massimo due chiamate e 60 secondi complessivi; test automatici senza credenziali o chiamate a pagamento.
-- [ ] Costi salvati e visibili, inclusi nuovi tentativi e lezioni scartate; valori mancanti e parziali sono espliciti.
-- [ ] Dopo la scelta del provider: prova reale di generazione, formato, consumi, tariffe e tempi. Finché manca, indicare il collaudo reale come non eseguito.
-- [ ] L'autore controlla manualmente un campione di lezioni per ogni unità e documenta problemi e limiti osservati.
-- [ ] README con scopo, demo del comportamento reale, prerequisiti, avvio, configurazione, test, architettura essenziale, fonti del curriculum, limiti e roadmap; esempio di configurazione senza segreti.
+- [x] Tutte le unità del curriculum A1 documentato sono presenti nel JSON, nell'ordine previsto e con obiettivi verificabili.
+- [x] Il flusso completo funziona: inizio/ripresa, lezione, invio, correzione, storico, avanzamento e conclusione.
+- [x] Ogni lezione contiene il formato previsto e riporta 15 minuti stimati, senza obbligare l'utente ad aspettare.
+- [x] Punteggi, invii non validi/duplicati, scarto e ripartenza rispettano le regole sopra; soluzioni non esposte prima dell'invio.
+- [x] Progressi e lezioni sopravvivono al riavvio; errori del provider e del salvataggio non li alterano.
+- [x] Client agnostico configurabile, massimo due chiamate e 60 secondi complessivi; test automatici senza credenziali o chiamate a pagamento.
+- [x] Costi salvati e visibili, inclusi nuovi tentativi e lezioni scartate; valori mancanti e parziali sono espliciti.
+- [x] Dopo la scelta del provider: prova reale di generazione, formato, consumi, tariffe e tempi. Finché manca, indicare il collaudo reale come non eseguito.
+- [x] L'autore controlla manualmente un campione di lezioni per ogni unità e documenta problemi e limiti osservati.
+- [x] README con scopo, demo del comportamento reale, prerequisiti, avvio, configurazione, test, architettura essenziale, fonti del curriculum, limiti e roadmap; esempio di configurazione senza segreti.
 
 La documentazione deve distinguere funzionalità implementate, test realmente eseguiti e sviluppi futuri. Il giudizio sull'utilità rimane all'autore, senza metriche di adozione obbligatorie o autovalutazione del prodotto.
 

@@ -2,7 +2,12 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from litellm.exceptions import AuthenticationError, RateLimitError, Timeout
+from litellm.exceptions import (
+    AuthenticationError,
+    BadRequestError,
+    RateLimitError,
+    Timeout,
+)
 from pydantic import ValidationError
 
 from app.curriculum import load_curriculum, load_sample_lesson
@@ -15,6 +20,7 @@ from app.generation import (
     InvalidGenerationResponse,
     LLMConfig,
     LiteLLMGenerator,
+    classify_generation_error,
 )
 from app.main import create_app
 from app.models import LessonContent
@@ -82,13 +88,7 @@ def test_missing_configuration_blocks_only_new_generation(tmp_path, monkeypatch)
         offline.start_or_resume()
 
 
-@pytest.mark.parametrize(
-    ("native_schema", "expected_format"),
-    [(True, LessonContent), (False, {"type": "json_object"})],
-)
-def test_generation_sends_only_lesson_context_and_validates_json(
-    monkeypatch, native_schema, expected_format
-) -> None:
+def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) -> None:
     captured = {}
     unit = load_curriculum()[0]
     payload = load_sample_lesson().model_dump_json()
@@ -99,19 +99,24 @@ def test_generation_sends_only_lesson_context_and_validates_json(
         return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
     monkeypatch.setattr("app.generation.completion", fake_completion)
-    monkeypatch.setattr(
-        "app.generation.supports_response_schema", lambda **_: native_schema
-    )
     generator = LiteLLMGenerator(LLMConfig("provider/model", "test-key"))
 
     lesson = generator(unit)
     sent = json.loads(captured["messages"][0]["content"])
 
     assert lesson == load_sample_lesson()
-    assert captured["response_format"] == expected_format
+    assert captured["response_format"] == {"type": "json_object"}
     assert set(sent) == {"level", "unit", "languages", "format"}
     assert sent["level"] == "A1"
     assert sent["unit"] == unit.model_dump()
+    assert sent["languages"] == {
+        "explanation_example_notes_and_rationales": "Italian",
+        "example_sentences_questions_and_options": "English",
+    }
+    instructions = sent["format"]["instructions"]
+    assert "English grammar only" in instructions
+    assert "strictly within the unit objective" in instructions
+    assert "exactly one unambiguously correct option" in instructions
     assert "history" not in captured["messages"][0]["content"].lower()
     assert all(exercise.rationale for exercise in lesson.exercises)
 
@@ -132,7 +137,6 @@ def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> No
         _hidden_params={"response_cost": 0.0042},
     )
     monkeypatch.setattr("app.generation.completion", lambda **_: response)
-    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: True)
 
     output = LiteLLMGenerator(
         LLMConfig("provider/model", "test-key")
@@ -187,7 +191,6 @@ def test_malformed_json_then_valid_response_records_each_mocked_call(
         return next(responses)
 
     monkeypatch.setattr("app.generation.completion", fake_completion)
-    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: False)
     service = TutorService(
         tmp_path / "tutor.db",
         LiteLLMGenerator(LLMConfig("provider/model", "test-key")),
@@ -218,7 +221,6 @@ def test_missing_usage_and_price_are_recorded_as_unavailable(monkeypatch) -> Non
         _hidden_params={},
     )
     monkeypatch.setattr("app.generation.completion", lambda **_: response)
-    monkeypatch.setattr("app.generation.supports_response_schema", lambda **_: True)
     monkeypatch.setattr(
         "app.generation.completion_cost",
         lambda **_: (_ for _ in ()).throw(LookupError("price missing")),
@@ -229,6 +231,17 @@ def test_missing_usage_and_price_are_recorded_as_unavailable(monkeypatch) -> Non
     ).generate_once(load_curriculum()[0], timeout=30)
 
     assert output.metrics == CallMetrics()
+
+
+def test_insufficient_provider_balance_has_a_specific_non_retryable_error() -> None:
+    error = BadRequestError(
+        "Insufficient Balance", "deepseek-flash", "deepseek"
+    )
+
+    disposition = classify_generation_error(error)
+
+    assert disposition.retryable is False
+    assert "saldo" in disposition.user_message.lower()
 
 
 def test_invalid_output_retries_once_and_records_both_calls(tmp_path) -> None:

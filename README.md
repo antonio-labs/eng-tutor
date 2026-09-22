@@ -22,9 +22,9 @@ SQLite sul computer dell'utente.
 
 ## Limiti osservati
 
-- DeepSeek e il modello `deepseek-flash` non sono ancora stati collaudati dal vivo;
-- la validazione strutturale non garantisce da sola la correttezza didattica del
-  testo generato, che richiede la revisione prevista nel blocco 5;
+- la revisione copre un campione reale per ciascuna unità, ma una futura
+  generazione può comunque richiedere controllo didattico;
+- il controllo dei contenuti non equivale a una certificazione di un docente;
 - il percorso copre la grammatica A1, non tutte le competenze CEFR A1;
 - dati e bozze sono locali al computer e al browser, senza sincronizzazione;
 - le stime di costo possono essere parziali o non disponibili;
@@ -65,7 +65,7 @@ un database temporaneo e la lezione di esempio dichiarata come simulata:
 Con un secondo database di prova già completato, la home ha mostrato `36/36` e
 **Percorso di grammatica A1 completato**. La stessa prova ha verificato uso da
 tastiera, modalità scura e assenza di interpretazione HTML dei testi mostrati.
-Non è stata eseguita alcuna chiamata a un provider LLM.
+Quella specifica prova non ha eseguito chiamate a un provider LLM.
 
 ## Architettura essenziale
 
@@ -177,7 +177,7 @@ Il comportamento previsto è definito nella [specifica dell'MVP](MVP-SPEC.md).
 - le sole selezioni non ancora inviate sono nel `localStorage` del browser;
 - l'app non include account, analytics, sincronizzazione o backup automatici;
 - il provider LLM tratta il prompt descritto sopra secondo i propri termini e
-  le proprie regole di conservazione, da verificare prima del collaudo reale.
+  le proprie regole di conservazione, da consultare prima dell'uso.
 
 Per un backup manuale, arrestare l'app e copiare il database in una posizione
 sicura, adattando i percorsi se `DATABASE_PATH` è diverso:
@@ -206,12 +206,15 @@ nel servizio scelto.
 
 ## Stato del collaudo LLM
 
-DeepSeek con `deepseek-flash` è il provider configurato, ma non è ancora stato
-chiamato. Il client, la validazione, i retry, gli errori, i consumi e i costi sono
-verificati con mock deterministici; il flusso browser è stato provato con il
-contenuto di esempio. Restano aperti autenticazione reale, capacità del modello,
-qualità didattica, latenza, consumi e tariffa effettivi descritti nel blocco 5 di
-[tasks.md](tasks.md).
+DeepSeek `deepseek-flash` è stato collaudato il 22 settembre 2026 con LiteLLM
+1.101.0. La prova end-to-end ha verificato autenticazione, JSON Output, schema,
+consumi, costo, latenza, persistenza e operazioni offline. Un campione reale per
+ciascuna delle 36 unità è stato revisionato; sei output iniziali hanno portato a
+stringere il prompt e sono stati rigenerati con esito positivo.
+
+Il [report completo del collaudo](MVP-VALIDATION.md) contiene misure, prezzi
+ufficiali, problemi trovati, correzioni, checklist della specifica e limiti. Il
+collaudo riguarda soltanto DeepSeek; non dichiara verificati altri provider.
 
 ## Risoluzione dei problemi
 
@@ -221,6 +224,10 @@ sia `LLM_MODEL` sia `LLM_API_KEY`, quindi riavviare con `make`.
 **Il provider rifiuta credenziali o modello.** Controllare i nomi e la chiave
 nella documentazione del provider scelto. L'app non prova automaticamente un
 provider alternativo.
+
+**DeepSeek risponde “Insufficient Balance”.** Aggiungere credito o verificare il
+limite di spesa nell'account del provider, quindi riprovare. L'app non ritenta
+automaticamente questo errore.
 
 **La generazione scade o fallisce due volte.** Ogni operazione dispone al massimo
 di 60 secondi complessivi e due chiamate. Il tentativo viene registrato; si può

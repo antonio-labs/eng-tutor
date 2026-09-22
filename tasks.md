@@ -2,7 +2,9 @@
 
 Riferimento operativo: [MVP-SPEC.md](MVP-SPEC.md). Curriculum: [A1-CURRICULUM.md](A1-CURRICULUM.md). Motivazioni e decisioni: [MVP-GRILLING.md](MVP-GRILLING.md).
 
-**Stato iniziale:** pianificazione completata, implementazione non iniziata. Ogni casella si chiude soltanto quando il comportamento è stato verificato. Il provider verrà scelto in seguito: questo non blocca lo sviluppo, ma la prova con un modello reale rimane necessaria prima di dichiarare l'MVP completo.
+**Stato:** attività completate e verificate il 22 settembre 2026. Le evidenze del
+collaudo reale sono in [MVP-VALIDATION.md](MVP-VALIDATION.md). Ogni casella è
+stata chiusa soltanto dopo la verifica del comportamento.
 
 Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, nessun componente predisposto per gli sviluppi futuri. Aggiornare le istruzioni di avvio mentre si implementa, così restano riproducibili.
 
@@ -41,14 +43,17 @@ Procedere nell'ordine seguente, con modifiche piccole. Una sola applicazione, ne
 - [x] **4.4 — Conteggio dei costi.** Salvare per chiamata consumi disponibili, provider/modello, stima USD e riferimento tariffario. Aggregare i tentativi per lezione e mostrare totale, subtotale parziale o costo non disponibile. Conservare importi storici e costi delle lezioni scartate; evidenziare separatamente i consumi noti delle generazioni fallite. Nessun limite di spesa applicativo.
 - [x] **4.5 — Test dell'integrazione.** Simulare risposta valida, JSON non valido seguito da risposta valida, due fallimenti, timeout, credenziali errate, consumi assenti e prezzi mancanti. Verificare numero effettivo di chiamate, validazione, costi dei tentativi e assenza di richieste AI durante correzione/consultazione. Usare consumi e tariffe di prova deterministici, senza chiamate a pagamento.
 
-**Risultato verificabile:** il flusso usa il client agnostico e gestisce contenuti, errori e costi. I test sono eseguibili senza API key; la compatibilità con un provider reale è ancora da collaudare.
+**Risultato verificabile:** il flusso usa il client agnostico e gestisce contenuti, errori e costi. I test sono eseguibili senza API key; la compatibilità reale con DeepSeek è collaudata nel blocco 5.
 
 ## 5. Collaudo con il provider scelto e verifica didattica
 
-- [ ] **5.1 — Configurazione successiva dell'autore.** Quando viene scelto il provider, configurare un modello supportato e verificare autenticazione, capacità di output, consumo restituito e tariffe nella documentazione ufficiale aggiornata. Registrare modello, data, versione del client e fonte dei prezzi, mai la chiave.
-- [ ] **5.2 — Prova reale completa.** Generare e completare una lezione, controllare qualità dell'output, tempo totale e costo stimato. Verificare inoltre che una lezione già salvata sia consultabile e correggibile senza connessione e che un nuovo avvio non lo sia.
-- [ ] **5.3 — Revisione dell'autore.** Controllare un piccolo campione per ciascuna delle 36 unità: pertinenza, vocabolario, soluzione unica e motivazioni corrette. Annotare gli errori, correggere prompt/vincoli e ricontrollare le parti coinvolte. La validazione automatica dello schema non sostituisce questa prova.
-- [ ] **5.4 — Controllo finale della spec.** Percorrere i criteri di completamento di `MVP-SPEC.md`, riportando esito e limiti effettivi. Verificare che il client, la documentazione e l'interfaccia non dichiarino provider non testati o un raggiungimento certificato di A1.
+Collaudo, misure, revisione dei contenuti e limiti sono registrati in
+[MVP-VALIDATION.md](MVP-VALIDATION.md). La chiave non è stata registrata.
+
+- [x] **5.1 — Configurazione successiva dell'autore.** Quando viene scelto il provider, configurare un modello supportato e verificare autenticazione, capacità di output, consumo restituito e tariffe nella documentazione ufficiale aggiornata. Registrare modello, data, versione del client e fonte dei prezzi, mai la chiave.
+- [x] **5.2 — Prova reale completa.** Generare e completare una lezione, controllare qualità dell'output, tempo totale e costo stimato. Verificare inoltre che una lezione già salvata sia consultabile e correggibile senza connessione e che un nuovo avvio non lo sia.
+- [x] **5.3 — Revisione dell'autore.** Controllare un piccolo campione per ciascuna delle 36 unità: pertinenza, vocabolario, soluzione unica e motivazioni corrette. Annotare gli errori, correggere prompt/vincoli e ricontrollare le parti coinvolte. La validazione automatica dello schema non sostituisce questa prova.
+- [x] **5.4 — Controllo finale della spec.** Percorrere i criteri di completamento di `MVP-SPEC.md`, riportando esito e limiti effettivi. Verificare che il client, la documentazione e l'interfaccia non dichiarino provider non testati o un raggiungimento certificato di A1.
 
 **Risultato verificabile:** esiste evidenza della prova sul provider configurato e della revisione manuale dei contenuti. Se il provider non è ancora stato scelto, lasciare queste attività aperte senza bloccare i blocchi precedenti o la documentazione.
 
