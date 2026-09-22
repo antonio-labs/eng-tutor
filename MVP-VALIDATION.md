@@ -37,6 +37,10 @@ LiteLLM al momento della risposta, non la fattura DeepSeek.
 
 Una lezione A1-01 è stata generata e salvata in un database temporaneo, poi il
 servizio è stato riaperto senza generatore per simulare l'assenza di connessione.
+Questa prova documenta il provider e il client reali ed è precedente alla
+separazione tra spiegazione editoriale e pratica AI. Il nuovo schema, che
+accetta dal provider soltanto esempi ed esercizi, è stato verificato con test
+d'integrazione deterministici senza effettuare una nuova trasmissione esterna.
 
 | Misura | Esito |
 | --- | ---: |
@@ -96,22 +100,99 @@ Il costo stimato delle 43 generazioni riuscite usate nel collaudo completo è
 $0,06371205. I precedenti errori HTTP 402 e 400 non hanno restituito consumi o
 stime e non sono inclusi nel totale.
 
+## Revisione editoriale delle spiegazioni curate
+
+Le spiegazioni Markdown del backend sono state revisionate separatamente dagli
+output generati. Per ogni unità sono stati controllati obiettivo e perimetro,
+accuratezza rispetto alle fonti mappate nel curriculum, chiarezza per un
+italofono e resa nel renderer sicuro. I test automatici verificano copertura e
+struttura, non tentano di giudicare la correttezza grammaticale.
+
+| Unità | Fatti e scope | Italiano A1 | Renderer | Esito |
+| --- | --- | --- | --- | --- |
+| A1-01 | Superato | Superato | Superato | Approvata |
+| A1-02 | Superato | Superato | Superato | Approvata |
+| A1-03 | Superato | Superato | Superato | Approvata |
+| A1-04 | Superato | Superato | Superato | Approvata |
+| A1-05 | Superato | Superato | Superato | Approvata |
+| A1-06 | Superato | Superato | Superato | Approvata |
+| A1-07 | Superato | Superato | Superato | Approvata |
+| A1-08 | Superato | Superato | Superato | Approvata |
+| A1-09 | Superato | Superato | Superato | Approvata |
+| A1-10 | Superato | Superato | Superato | Approvata |
+| A1-11 | Superato | Superato | Superato | Approvata |
+| A1-12 | Superato | Superato | Superato | Approvata |
+| A1-13 | Superato | Superato | Superato | Approvata |
+| A1-14 | Superato | Superato | Superato | Approvata |
+| A1-15 | Superato | Superato | Superato | Approvata |
+| A1-16 | Superato | Superato | Superato | Approvata |
+| A1-17 | Superato | Superato | Superato | Approvata |
+| A1-18 | Superato | Superato | Superato | Approvata |
+| A1-19 | Superato | Superato | Superato | Approvata |
+| A1-20 | Superato | Superato | Superato | Approvata |
+| A1-21 | Superato | Superato | Superato | Approvata |
+| A1-22 | Superato | Superato | Superato | Approvata |
+| A1-23 | Superato | Superato | Superato | Approvata |
+| A1-24 | Superato | Superato | Superato | Approvata |
+| A1-25 | Superato | Superato | Superato | Approvata |
+| A1-26 | Superato | Superato | Superato | Approvata |
+| A1-27 | Superato | Superato | Superato | Approvata |
+| A1-28 | Superato | Superato | Superato | Approvata |
+| A1-29 | Superato | Superato | Superato | Approvata |
+| A1-30 | Superato | Superato | Superato | Approvata |
+| A1-31 | Superato | Superato | Superato | Approvata |
+| A1-32 | Superato | Superato | Superato | Approvata |
+| A1-33 | Superato | Superato | Superato | Approvata |
+| A1-34 | Superato | Superato | Superato | Approvata |
+| A1-35 | Superato | Superato | Superato | Approvata |
+| A1-36 | Superato | Superato | Superato | Approvata |
+
+## Collaudo finale delle spiegazioni
+
+Il 22 settembre 2026 è stata eseguita l'intera suite dopo la separazione fra
+contenuto editoriale e pratica AI. I test coprono anche i casi introdotti dal
+piano delle spiegazioni.
+
+| Verifica automatica | Esito |
+| --- | --- |
+| 36 file, ID esatti e quattro sezioni obbligatorie | Superata |
+| Sintassi esclusa dal contratto editoriale | Rifiutata come previsto |
+| Spiegazione storica in testo semplice dopo il riavvio | Superata |
+| Snapshot invariato dopo la modifica del file sorgente | Superata |
+| Soluzioni e motivazioni assenti prima dell'invio | Superata |
+| HTML ostile senza uso di `innerHTML` | Superata |
+| Output AI limitato a esempi ed esercizi | Superata |
+| JSON non valido, retry, timeout e costi | Superata |
+
+Il flusso reale nel browser è stato completato separatamente su desktop e con
+viewport mobile `390 × 844`, ottenendo `6/6` in entrambi i casi. Sono stati
+controllati gerarchia dei titoli, ritmo di lettura, liste, codice inline,
+callout «Attenzione» e schede degli esempi. In una prova ostile, i frammenti
+`script` e `img` sono rimasti testo visibile: il DOM conteneva zero script e
+zero immagini iniettati. Prima dell'invio non erano visibili chiavi di soluzione
+o motivazioni.
+
+Infine una lezione è stata salvata con una spiegazione sorgente identificabile;
+il file Markdown è stato modificato e la pagina ricaricata. La lezione ha
+continuato a mostrare la versione originale e non quella modificata, confermando
+lo snapshot storico anche nel flusso browser.
+
 ## Criteri di completamento
 
 | Criterio della specifica | Evidenza | Esito |
 | --- | --- | --- |
 | 36 unità ordinate con obiettivi | Curriculum JSON e test automatici | Superato |
-| Flusso completo e conclusione | Test API/browser precedenti e prova reale sopra | Superato |
-| Formato della lezione e 15 minuti | Modelli, test e 36 output reali | Superato |
+| Flusso completo e conclusione | Test API e prove browser desktop/mobile | Superato |
+| Formato della lezione e 15 minuti | Modelli, 36 spiegazioni curate e test | Superato |
 | Punteggio, invii, scarto, soluzioni protette | Test automatici | Superato |
-| Persistenza e gestione errori | Test automatici e riapertura offline reale | Superato |
+| Persistenza e gestione errori | Test, snapshot browser e riapertura offline reale | Superato |
 | Client configurabile, 2 chiamate, 60 secondi | Configurazione, test retry/timeout e prova reale | Superato |
 | Costi noti, parziali e mancanti | Test automatici e consumi reali sopra | Superato |
 | Provider, formato, consumi, prezzi e tempi reali | DeepSeek `deepseek-flash`, 43 risposte riuscite | Superato |
-| Campione manuale per ogni unità | 36 unità revisionate, 6 corrette e ricontrollate | Superato |
+| Campione manuale per ogni unità | 36 pratiche reali e 36 spiegazioni curate revisionate | Superato |
 | README riproducibile e trasparente | README aggiornato e questo report | Superato |
 
-Suite finale: 35 test superati con `uv run --frozen pytest -q`. I test
+Suite finale: 41 test superati con `uv run --frozen pytest -q`. I test
 automatici non usano la chiave e non chiamano il provider.
 
 ## Limiti

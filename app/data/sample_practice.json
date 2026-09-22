@@ -1,6 +1,4 @@
 {
-  "unit_id": "A1-01",
-  "explanation": "In inglese il pronome soggetto precede il verbo be. Al presente si usano am con I, is con he, she e it, e are con you, we e they.",
   "examples": [
     {"sentence": "I am Luca.", "note": "Con I si usa am."},
     {"sentence": "She is a doctor.", "note": "Con she si usa is."},

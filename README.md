@@ -1,8 +1,9 @@
 # AI English Tutor
 
-Applicazione web locale per esercitarsi sulla grammatica inglese A1 con lezioni
-generate da un modello linguistico. Il percorso contiene 36 unità ordinate,
-corregge sei domande per lezione e avanza con almeno 5 risposte corrette.
+Applicazione web locale per esercitarsi sulla grammatica inglese A1 con
+spiegazioni editoriali e pratica generata da un modello linguistico. Il
+percorso contiene 36 unità ordinate, corregge sei domande per lezione e avanza
+con almeno 5 risposte corrette.
 
 L'MVP risolve un problema preciso: offrire sessioni brevi, riprendibili e
 verificabili senza introdurre account, servizi applicativi remoti o una
@@ -13,7 +14,7 @@ SQLite sul computer dell'utente.
 
 - percorso A1 sequenziale di 36 unità;
 - una lezione attiva alla volta, salvata prima di essere mostrata;
-- spiegazione, tre esempi e sei domande a scelta multipla;
+- spiegazione Markdown curata, tre esempi e sei domande a scelta multipla;
 - bozze delle risposte conservate nel browser;
 - correzione deterministica, soglia 5/6 e risultati consultabili;
 - scarto della lezione senza avanzamento;
@@ -75,7 +76,9 @@ Quella specifica prova non ha eseguito chiamate a un provider LLM.
 - `app/generation.py`: singolo client LiteLLM e validazione dell'output;
 - `app/grading.py`: correzione e avanzamento deterministici;
 - `app/database.py`: schema e connessione SQLite;
-- `app/data/`: curriculum e lezione di esempio usata soltanto nei test;
+- `app/data/grammar_explanations/`: le 36 spiegazioni Markdown curate;
+- `app/data/sample_practice.json`: pratica di esempio usata soltanto nei test;
+- `app/data/curriculum.json`: ordine, titoli e obiettivi delle unità;
 - `tests/`: test unitari e di integrazione con chiamata LLM sostituita da mock.
 
 ## Prerequisiti
@@ -139,8 +142,9 @@ uv run --frozen pytest
 ```
 
 I test non richiedono credenziali e non chiamano provider reali. Coprono schema,
-curriculum, correzione, persistenza, API, retry, timeout e contabilità tramite
-risposte simulate e tariffe deterministiche.
+curriculum, spiegazioni Markdown, renderer sicuro, snapshot storici,
+compatibilità con il testo semplice, correzione, persistenza, API, retry,
+timeout e contabilità tramite risposte simulate e tariffe deterministiche.
 
 ## Contenuti, fonti e durata
 
@@ -157,13 +161,46 @@ sei esercizi e 3 per correzione e revisione. È un budget didattico assegnato da
 backend, non un timer né una misura del tempo reale. Le 36 unità corrispondono a
 540 minuti nominali, esclusi i tentativi ripetuti.
 
+### Modificare una spiegazione
+
+Ogni unità ha un file `app/data/grammar_explanations/A1-NN.md`, dove `A1-NN`
+deve corrispondere a un ID presente nel curriculum. Il file non ripete titolo,
+obiettivo o fonti e usa questa struttura:
+
+```md
+### Quando si usa
+
+Testo introduttivo.
+
+### Come si forma
+
+- Regola essenziale.
+
+### Attenzione
+
+> Limite o contrasto importante.
+
+### Errori comuni
+
+- Errore plausibile e correzione.
+```
+
+Il renderer supporta soltanto paragrafi, titoli `###`, elenchi puntati,
+citazioni, `**grassetto**` e `` `codice inline` ``. HTML, immagini, link e altra
+sintassi vengono mostrati come testo inerte. Dopo una modifica eseguire
+`uv run --frozen pytest`: i test controllano corrispondenza con il curriculum,
+sezioni obbligatorie e costrutti esclusi. Le lezioni già salvate conservano la
+propria copia e non vengono riscritte.
+
 ## AI e logica deterministica
 
 L'AI viene chiamata soltanto quando si avvia una nuova lezione. Riceve livello,
-identificativo, titolo e obiettivo dell'unità, lingue richieste e schema JSON;
-non riceve lo storico, le risposte dell'utente o le lezioni precedenti. Il
-provider produce spiegazione, esempi, domande, soluzioni e motivazioni, poi il
-backend valida tutto con Pydantic prima del salvataggio.
+identificativo, titolo, obiettivo e spiegazione Markdown verificata dell'unità,
+oltre alle lingue richieste e allo schema JSON. Non riceve lo storico, le
+risposte dell'utente o le lezioni precedenti. Il provider produce soltanto tre
+esempi e sei esercizi con soluzioni e motivazioni; non può restituire o
+sostituire ID e spiegazione. Il backend valida la pratica con Pydantic, la
+unisce ai contenuti curati e salva lo snapshot completo.
 
 Correzione, punteggio, soglia 5/6, avanzamento, scarto, storico e consultazione
 dei risultati sono logica locale deterministica e non fanno altre richieste AI.
@@ -210,7 +247,10 @@ DeepSeek `deepseek-flash` è stato collaudato il 22 settembre 2026 con LiteLLM
 1.101.0. La prova end-to-end ha verificato autenticazione, JSON Output, schema,
 consumi, costo, latenza, persistenza e operazioni offline. Un campione reale per
 ciascuna delle 36 unità è stato revisionato; sei output iniziali hanno portato a
-stringere il prompt e sono stati rigenerati con esito positivo.
+stringere il prompt e sono stati rigenerati con esito positivo. Quella prova
+precede la separazione delle spiegazioni dal payload AI; l'attuale contratto
+“pratica soltanto” è verificato dalla suite automatica senza una nuova chiamata
+esterna.
 
 Il [report completo del collaudo](MVP-VALIDATION.md) contiene misure, prezzi
 ufficiali, problemi trovati, correzioni, checklist della specifica e limiti. Il

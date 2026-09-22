@@ -2,6 +2,11 @@
 
 Riferimento operativo: [MVP-SPEC.md](MVP-SPEC.md). Curriculum: [A1-CURRICULUM.md](A1-CURRICULUM.md). Motivazioni e decisioni: [MVP-GRILLING.md](MVP-GRILLING.md).
 
+Il piano incrementale per rendere deterministiche e visualizzare in Markdown le
+36 spiegazioni grammaticali è in
+[GRAMMAR-EXPLANATIONS-PLAN.md](GRAMMAR-EXPLANATIONS-PLAN.md). Le attività qui
+sotto restano lo storico del primo MVP completato.
+
 **Stato:** attività completate e verificate il 22 settembre 2026. Le evidenze del
 collaudo reale sono in [MVP-VALIDATION.md](MVP-VALIDATION.md). Ogni casella è
 stata chiusa soltanto dopo la verifica del comportamento.

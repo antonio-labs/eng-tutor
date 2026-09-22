@@ -13,6 +13,7 @@ from app.models import (
 
 
 DATA_DIR = Path(__file__).parent / "data"
+EXPLANATIONS_DIR = DATA_DIR / "grammar_explanations"
 
 
 def load_curriculum() -> list[CurriculumUnit]:
@@ -26,9 +27,30 @@ def load_curriculum() -> list[CurriculumUnit]:
 
 
 def load_sample_lesson() -> LessonContent:
-    return LessonContent.model_validate_json(
-        (DATA_DIR / "sample_lesson.json").read_text(encoding="utf-8")
+    practice = json.loads(
+        (DATA_DIR / "sample_practice.json").read_text(encoding="utf-8")
     )
+    return LessonContent(
+        unit_id="A1-01",
+        explanation=load_explanation_markdown("A1-01"),
+        **practice,
+    )
+
+
+def load_explanation_markdown(unit_id: str) -> str:
+    if unit_id not in {unit.id for unit in load_curriculum()}:
+        raise ValueError(f"unknown curriculum unit id: {unit_id}")
+
+    path = EXPLANATIONS_DIR / f"{unit_id}.md"
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"missing grammar explanation for unit {unit_id}"
+        ) from None
+    if not content.strip():
+        raise ValueError(f"empty grammar explanation for unit {unit_id}")
+    return content
 
 
 def next_unit(

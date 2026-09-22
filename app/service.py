@@ -6,7 +6,12 @@ from pathlib import Path
 from time import monotonic
 from uuid import uuid4
 
-from app.curriculum import load_curriculum, load_sample_lesson, next_unit
+from app.curriculum import (
+    load_curriculum,
+    load_explanation_markdown,
+    load_sample_lesson,
+    next_unit,
+)
 from app.database import connect, initialize_database
 from app.grading import grade_lesson
 from app.generation import (
@@ -56,9 +61,7 @@ def generate_sample(unit: CurriculumUnit) -> LessonContent:
     return lesson.model_copy(
         update={
             "unit_id": unit.id,
-            "explanation": (
-                "CONTENUTO DI ESEMPIO (nessuna chiamata AI). " + lesson.explanation
-            ),
+            "explanation": load_explanation_markdown(unit.id).strip(),
         }
     )
 

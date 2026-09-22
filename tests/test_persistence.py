@@ -2,6 +2,7 @@ import sqlite3
 
 import pytest
 
+from app import curriculum
 from app.curriculum import load_sample_lesson
 from app.database import connect
 from app.main import create_app
@@ -70,3 +71,52 @@ def test_discard_and_next_start_survive_restart(tmp_path) -> None:
     assert replacement.id != lesson.id
     assert replacement.unit.id == lesson.unit.id
     assert restarted.history()[0].status == "discarded"
+
+
+def test_plain_text_historical_explanation_survives_restart(tmp_path) -> None:
+    database_path = tmp_path / "tutor.db"
+    historical_explanation = "Una spiegazione storica senza sintassi Markdown."
+    historical_lesson = load_sample_lesson().model_copy(
+        update={"explanation": historical_explanation}
+    )
+
+    def generate_historical(unit):
+        return historical_lesson.model_copy(update={"unit_id": unit.id})
+
+    first_process = create_app(
+        database_path, generate_historical
+    ).state.tutor_service
+    started = first_process.start_or_resume()
+    assert started is not None
+
+    restarted = create_app(database_path, generate_sample).state.tutor_service
+    resumed = restarted.get_lesson(started.id)
+
+    assert resumed is not None
+    assert resumed.content.explanation == historical_explanation
+    assert "correct_option" not in resumed.model_dump_json()
+    assert "rationale" not in resumed.model_dump_json()
+
+
+def test_saved_explanation_is_immutable_snapshot(tmp_path, monkeypatch) -> None:
+    explanations_dir = tmp_path / "grammar_explanations"
+    explanations_dir.mkdir()
+    source = explanations_dir / "A1-01.md"
+    original = "### Quando si usa\n\nVersione originale verificata."
+    source.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(curriculum, "EXPLANATIONS_DIR", explanations_dir)
+
+    database_path = tmp_path / "tutor.db"
+    first_process = create_app(database_path, generate_sample).state.tutor_service
+    started = first_process.start_or_resume()
+    assert started is not None
+
+    source.write_text(
+        "### Quando si usa\n\nVersione modificata dopo il salvataggio.",
+        encoding="utf-8",
+    )
+    restarted = create_app(database_path, generate_sample).state.tutor_service
+    resumed = restarted.get_lesson(started.id)
+
+    assert resumed is not None
+    assert resumed.content.explanation == original

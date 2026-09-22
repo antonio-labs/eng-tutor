@@ -19,9 +19,15 @@ from litellm.exceptions import (
     Timeout,
     UnsupportedParamsError,
 )
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
-from app.models import CurriculumUnit, LessonContent
+from app.curriculum import load_explanation_markdown
+from app.models import CurriculumUnit, Exercise, LessonContent, LessonExample, Model
+
+
+class _GeneratedPractice(Model):
+    examples: list[LessonExample] = Field(min_length=3, max_length=3)
+    exercises: list[Exercise] = Field(min_length=6, max_length=6)
 
 
 class GenerationUnavailable(Exception):
@@ -152,6 +158,7 @@ class LiteLLMGenerator:
         return self.generate_once(unit, timeout=60).content
 
     def generate_once(self, unit: CurriculumUnit, timeout: float) -> GenerationOutput:
+        explanation = load_explanation_markdown(unit.id).strip()
         prompt = {
             "level": "A1",
             "unit": {
@@ -159,23 +166,27 @@ class LiteLLMGenerator:
                 "title": unit.title,
                 "objective": unit.objective,
             },
+            "verified_explanation_markdown": explanation,
             "languages": {
-                "explanation_example_notes_and_rationales": "Italian",
+                "example_notes_and_rationales": "Italian",
                 "example_sentences_questions_and_options": "English",
             },
             "format": {
                 "instructions": (
-                    "Return only JSON. Teach and test English grammar only; Italian "
-                    "is only for explanations, example notes and rationales. Keep "
-                    "every example sentence, question, option and correct answer in "
-                    "English and strictly within the unit objective. Keep vocabulary "
-                    "at A1 level. Create exactly three examples and six distinct, "
-                    "self-contained multiple-choice questions with three distinct "
-                    "options, exactly one unambiguously correct option and one "
-                    "rationale each. Do not use distractors that are valid under "
-                    "another plausible interpretation."
+                    "Use the verified explanation as authoritative context. Do not "
+                    "return or rewrite the explanation and do not return a unit ID. "
+                    "Return only JSON containing the requested practice. Teach and "
+                    "test English grammar only; Italian is only for example notes "
+                    "and rationales. Keep every example sentence, question, option "
+                    "and correct answer in English and strictly within the unit "
+                    "objective. Keep vocabulary at A1 level. Create exactly three "
+                    "examples and six distinct, self-contained multiple-choice "
+                    "questions with three distinct options, exactly one "
+                    "unambiguously correct option and one rationale each. Do not use "
+                    "distractors that are valid under another plausible "
+                    "interpretation."
                 ),
-                "json_schema": LessonContent.model_json_schema(),
+                "json_schema": _GeneratedPractice.model_json_schema(),
             },
         }
         kwargs: dict[str, Any] = {
@@ -196,8 +207,14 @@ class LiteLLMGenerator:
         response = completion(**kwargs)
         metrics = self._metrics(response)
         try:
-            content = LessonContent.model_validate_json(
+            practice = _GeneratedPractice.model_validate_json(
                 response.choices[0].message.content
+            )
+            content = LessonContent(
+                unit_id=unit.id,
+                explanation=explanation,
+                examples=practice.examples,
+                exercises=practice.exercises,
             )
         except ValidationError as error:
             raise InvalidGenerationResponse(error, metrics) from error

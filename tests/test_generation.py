@@ -10,7 +10,11 @@ from litellm.exceptions import (
 )
 from pydantic import ValidationError
 
-from app.curriculum import load_curriculum, load_sample_lesson
+from app.curriculum import (
+    load_curriculum,
+    load_explanation_markdown,
+    load_sample_lesson,
+)
 from app.database import connect, initialize_database
 from app.generation import (
     CallMetrics,
@@ -25,6 +29,12 @@ from app.generation import (
 from app.main import create_app
 from app.models import LessonContent
 from app.service import TutorService, generate_sample, utc_now
+
+
+def sample_practice_json() -> str:
+    return load_sample_lesson().model_dump_json(
+        include={"examples", "exercises"}
+    )
 
 
 class SequenceGenerator:
@@ -90,8 +100,8 @@ def test_missing_configuration_blocks_only_new_generation(tmp_path, monkeypatch)
 
 def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) -> None:
     captured = {}
-    unit = load_curriculum()[0]
-    payload = load_sample_lesson().model_dump_json()
+    unit = load_curriculum()[1]
+    payload = sample_practice_json()
 
     def fake_completion(**kwargs):
         captured.update(kwargs)
@@ -104,16 +114,33 @@ def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) ->
     lesson = generator(unit)
     sent = json.loads(captured["messages"][0]["content"])
 
-    assert lesson == load_sample_lesson()
+    sample = load_sample_lesson()
+    assert lesson.unit_id == unit.id
+    assert lesson.explanation == load_explanation_markdown(unit.id).strip()
+    assert lesson.examples == sample.examples
+    assert lesson.exercises == sample.exercises
     assert captured["response_format"] == {"type": "json_object"}
-    assert set(sent) == {"level", "unit", "languages", "format"}
+    assert set(sent) == {
+        "level",
+        "unit",
+        "verified_explanation_markdown",
+        "languages",
+        "format",
+    }
     assert sent["level"] == "A1"
     assert sent["unit"] == unit.model_dump()
+    assert sent["verified_explanation_markdown"] == lesson.explanation
     assert sent["languages"] == {
-        "explanation_example_notes_and_rationales": "Italian",
+        "example_notes_and_rationales": "Italian",
         "example_sentences_questions_and_options": "English",
     }
+    assert set(sent["format"]["json_schema"]["properties"]) == {
+        "examples",
+        "exercises",
+    }
     instructions = sent["format"]["instructions"]
+    assert "Do not return or rewrite the explanation" in instructions
+    assert "do not return a unit ID" in instructions
     assert "English grammar only" in instructions
     assert "strictly within the unit objective" in instructions
     assert "exactly one unambiguously correct option" in instructions
@@ -121,12 +148,37 @@ def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) ->
     assert all(exercise.rationale for exercise in lesson.exercises)
 
 
+def test_generation_rejects_provider_identity_and_explanation(monkeypatch) -> None:
+    response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=load_sample_lesson().model_dump_json())
+            )
+        ]
+    )
+    monkeypatch.setattr("app.generation.completion", lambda **_: response)
+
+    with pytest.raises(InvalidGenerationResponse):
+        LiteLLMGenerator(LLMConfig("provider/model", "test-key")).generate_once(
+            load_curriculum()[0], timeout=30
+        )
+
+
+def test_sample_generator_uses_curated_identity_and_explanation() -> None:
+    unit = load_curriculum()[2]
+
+    lesson = generate_sample(unit)
+
+    assert lesson.unit_id == unit.id
+    assert lesson.explanation == load_explanation_markdown(unit.id).strip()
+
+
 def test_generation_extracts_usage_cost_and_pricing_reference(monkeypatch) -> None:
     unit = load_curriculum()[0]
     response = SimpleNamespace(
         choices=[
             SimpleNamespace(
-                message=SimpleNamespace(content=load_sample_lesson().model_dump_json())
+                message=SimpleNamespace(content=sample_practice_json())
             )
         ],
         usage=SimpleNamespace(
@@ -170,7 +222,7 @@ def test_malformed_json_then_valid_response_records_each_mocked_call(
                 choices=[
                     SimpleNamespace(
                         message=SimpleNamespace(
-                            content=load_sample_lesson().model_dump_json()
+                            content=sample_practice_json()
                         )
                     )
                 ],
@@ -199,6 +251,7 @@ def test_malformed_json_then_valid_response_records_each_mocked_call(
     lesson = service.start_or_resume()
 
     assert lesson is not None
+    assert lesson.content.explanation == load_explanation_markdown("A1-01").strip()
     assert calls == 2
     with connect(service.database_path) as connection:
         attempts = connection.execute(
@@ -215,7 +268,7 @@ def test_missing_usage_and_price_are_recorded_as_unavailable(monkeypatch) -> Non
     response = SimpleNamespace(
         choices=[
             SimpleNamespace(
-                message=SimpleNamespace(content=load_sample_lesson().model_dump_json())
+                message=SimpleNamespace(content=sample_practice_json())
             )
         ],
         _hidden_params={},

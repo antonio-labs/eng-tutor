@@ -1,6 +1,6 @@
 # AI English Tutor — Specifica MVP
 
-**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](MVP-GRILLING.md). Attività in [tasks.md](tasks.md); programma e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
+**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](MVP-GRILLING.md) e al piano completato delle [spiegazioni grammaticali](GRAMMAR-EXPLANATIONS-PLAN.md). Attività in [tasks.md](tasks.md); programma e fonti in [A1-CURRICULUM.md](A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
 
 ## 1. Obiettivo e confini
 
@@ -14,7 +14,7 @@ La copertura è **grammaticale**: il completamento del percorso non certifica il
 
 Ogni lezione tratta una sola unità del curriculum e contiene:
 
-- Una spiegazione breve in italiano.
+- Una spiegazione editoriale in italiano, versionata nel backend come Markdown.
 - Tre esempi in inglese con brevi note in italiano.
 - Sei esercizi a scelta multipla, ciascuno con tre opzioni distinte e una sola soluzione valida.
 - Una motivazione della soluzione per ciascun esercizio, visibile dopo l'invio.
@@ -47,7 +47,12 @@ Le risposte originali vengono salvate per riaprire il risultato, senza trasforma
 
 ## 5. Generazione AI e client agnostico
 
-Una richiesta genera tutta la lezione, comprese le motivazioni delle soluzioni. Il backend invia livello, unità, obiettivo, lingue e formato fisso; non invia storico o risposte dello studente. Nessuna richiesta AI per correzione, punteggio o scelta del prossimo argomento.
+Una richiesta genera soltanto la pratica: tre esempi e sei esercizi, comprese le
+motivazioni delle soluzioni. Il backend carica la spiegazione Markdown verificata
+per l'unità, la invia come contesto autorevole insieme a livello, titolo,
+obiettivo, lingue e formato fisso, poi assembla il `LessonContent`. Non invia
+storico o risposte dello studente. Nessuna richiesta AI per spiegazione,
+correzione, punteggio o scelta del prossimo argomento.
 
 Usare **LiteLLM Python SDK** direttamente come client comune, con un solo provider/modello attivo e configurazione sul backend: `LLM_MODEL`, `LLM_API_KEY` ed eventuale `LLM_API_BASE`. La sua interfaccia comune evita di implementare adattatori nel progetto; non serve avviare il suo gateway o router. La compatibilità riguarda i provider supportati dal client, con i requisiti di autenticazione del servizio scelto. [Documentazione LiteLLM](https://docs.litellm.ai/docs/).
 
@@ -57,7 +62,14 @@ documentato in [MVP-VALIDATION.md](MVP-VALIDATION.md). Senza configurazione,
 l'app deve comunque mostrare storico e lezioni già salvate e spiegare perché non
 può crearne di nuove.
 
-Il generatore richiede JSON con spiegazione, esempi ed esercizi; ogni esercizio contiene identificativo, domanda, opzioni, indice della soluzione e motivazione. Il backend valida sempre i dati con Pydantic: testi non vuoti, quantità previste, ID univoci, tre opzioni distinte e indice valido. Il formato strutturato nativo si usa quando supportato dal modello; la compatibilità del client non garantisce le medesime capacità di output per ogni provider. [Output strutturati LiteLLM](https://docs.litellm.ai/docs/completion/json_mode).
+Il generatore richiede JSON con soli esempi ed esercizi; `unit_id` e
+`explanation` non fanno parte dello schema controllato dal provider. Ogni
+esercizio contiene identificativo, domanda, opzioni, indice della soluzione e
+motivazione. Il backend valida sempre i dati con Pydantic: testi non vuoti,
+quantità previste, ID univoci, tre opzioni distinte e indice valido. Il formato
+strutturato nativo si usa quando supportato dal modello; la compatibilità del
+client non garantisce le medesime capacità di output per ogni provider. [Output
+strutturati LiteLLM](https://docs.litellm.ai/docs/completion/json_mode).
 
 Il prompt richiede contenuti pertinenti all'obiettivo, lessico semplice, domande non duplicate e una sola soluzione valida. La validazione dello schema non dimostra la correttezza grammaticale: l'autore controllerà manualmente un campione per ogni unità.
 
@@ -85,17 +97,29 @@ Due tabelle sono sufficienti:
 - `lessons`: identificativo, unità, contenuto completo in JSON, stato (`active`, `completed`, `discarded`), risposte inviate, numero di risposte corrette e date. Una sola lezione attiva alla volta.
 - `generation_calls`: identificativo, gruppo di generazione, eventuale lezione associata, modello/provider, esito, consumi, costo stimato quando noto, riferimento tariffario e data. Serve anche per chiamate che non producono una lezione; non è un servizio di contabilità separato.
 
-Salvare la lezione prima di mostrarla. Al browser arrivano solo i contenuti didattici pubblici: soluzioni e motivazioni restano sul backend fino all'invio; anche il recupero di una lezione attiva o scartata le esclude.
+Salvare la lezione prima di mostrarla, inclusa una copia della spiegazione
+editoriale: modificare in seguito il file Markdown non riscrive lo storico. Al
+browser arrivano solo i contenuti didattici pubblici: soluzioni e motivazioni
+restano sul backend fino all'invio; anche il recupero di una lezione attiva o
+scartata le esclude. Il testo semplice presente in vecchi record resta valido.
 
 Ricaricamento e riavvio recuperano la stessa lezione. Le selezioni provvisorie sono salvate nel browser per ID della lezione e cancellate dopo invio riuscito o scarto. Il backend verifica completezza, ID e opzioni contro la lezione salvata; salva risposte, punteggio e completamento insieme. Un invio ripetuto restituisce il risultato già salvato. Una lezione scartata non può essere inviata; una completata non può essere scartata. Errori di salvataggio permettono di riprovare senza perdere le risposte.
 
-L'app ascolta solo sull'interfaccia locale. Chiavi API e database non entrano nel controllo versione; le chiavi non vengono inviate al browser o stampate nei log. I testi del modello sono mostrati come testo, non come HTML da eseguire. Controlli accessibili da tastiera, etichette chiare, stati di caricamento e feedback non basato soltanto sul colore.
+L'app ascolta solo sull'interfaccia locale. Chiavi API e database non entrano nel
+controllo versione; le chiavi non vengono inviate al browser o stampate nei log.
+Soltanto la spiegazione usa un renderer Markdown che costruisce nodi DOM tramite
+`textContent` e supporta paragrafi, titoli `###`, elenchi puntati, citazioni,
+grassetto e codice inline. HTML, immagini, link e sintassi non supportata restano
+testo inerte; tutti gli altri contenuti sono mostrati come testo. Controlli
+accessibili da tastiera, etichette chiare, stati di caricamento e feedback non
+basato soltanto sul colore.
 
 Lezioni salvate, correzione e storico funzionano senza connessione; la generazione richiede il provider. Documentare la copia manuale del database ad app ferma; nessun backup automatico o sincronizzazione.
 
 ## 8. Criteri di completamento e documentazione
 
 - [x] Tutte le unità del curriculum A1 documentato sono presenti nel JSON, nell'ordine previsto e con obiettivi verificabili.
+- [x] Tutte le 36 unità hanno una spiegazione Markdown editoriale revisionata, strutturalmente verificata e salvata come snapshot nella lezione.
 - [x] Il flusso completo funziona: inizio/ripresa, lezione, invio, correzione, storico, avanzamento e conclusione.
 - [x] Ogni lezione contiene il formato previsto e riporta 15 minuti stimati, senza obbligare l'utente ad aspettare.
 - [x] Punteggi, invii non validi/duplicati, scarto e ripartenza rispettano le regole sopra; soluzioni non esposte prima dell'invio.

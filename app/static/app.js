@@ -8,6 +8,92 @@ function element(tag, className, text) {
   return node;
 }
 
+function textNode(text) {
+  const node = document.createTextNode("");
+  node.textContent = text;
+  return node;
+}
+
+function appendInlineMarkdown(parent, source) {
+  const pattern = /(\*\*[^*\n]+\*\*|`[^`\n]+`)/g;
+  let offset = 0;
+  for (const match of source.matchAll(pattern)) {
+    if (match.index > offset) {
+      parent.append(textNode(source.slice(offset, match.index)));
+    }
+    const marker = match[0][0];
+    const tag = marker === "`" ? "code" : "strong";
+    const markerLength = marker === "`" ? 1 : 2;
+    parent.append(
+      element(tag, "", match[0].slice(markerLength, -markerLength)),
+    );
+    offset = match.index + match[0].length;
+  }
+  if (offset < source.length) {
+    parent.append(textNode(source.slice(offset)));
+  }
+}
+
+function renderExplanationMarkdown(source) {
+  const container = element("div", "explanation");
+  let paragraph = [];
+  let list = null;
+  let quote = [];
+
+  function appendTextBlock(parent, tag, lines) {
+    if (lines.length === 0) return;
+    const node = element(tag);
+    appendInlineMarkdown(node, lines.join(" "));
+    parent.append(node);
+    lines.length = 0;
+  }
+
+  function flush() {
+    appendTextBlock(container, "p", paragraph);
+    if (list) {
+      container.append(list);
+      list = null;
+    }
+    if (quote.length > 0) {
+      const blockquote = element("blockquote");
+      appendTextBlock(blockquote, "p", quote);
+      container.append(blockquote);
+    }
+  }
+
+  for (const rawLine of source.replaceAll("\r\n", "\n").split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+
+    const heading = line.match(/^###\s+(.+)$/);
+    const item = line.match(/^[-*+]\s+(.+)$/);
+    const quoted = line.match(/^>\s?(.*)$/);
+    if (heading) {
+      flush();
+      const node = element("h3");
+      appendInlineMarkdown(node, heading[1]);
+      container.append(node);
+    } else if (item) {
+      if (paragraph.length > 0 || quote.length > 0) flush();
+      if (!list) list = element("ul");
+      const node = element("li");
+      appendInlineMarkdown(node, item[1]);
+      list.append(node);
+    } else if (quoted) {
+      if (paragraph.length > 0 || list) flush();
+      quote.push(quoted[1]);
+    } else {
+      if (list || quote.length > 0) flush();
+      paragraph.push(line);
+    }
+  }
+  flush();
+  return container;
+}
+
 function button(label, className, action) {
   const node = element("button", `button ${className || ""}`.trim(), label);
   node.type = "button";
@@ -307,7 +393,7 @@ async function renderLesson(id) {
   const teaching = element("section", "lesson-copy");
   teaching.append(
     element("h2", "", "Regola"),
-    element("p", "lede", lesson.content.explanation),
+    renderExplanationMarkdown(lesson.content.explanation),
     element("h2", "", "Esempi"),
   );
   const examples = element("ul", "examples");

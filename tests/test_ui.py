@@ -25,6 +25,12 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
     assert "localStorage.setItem" in javascript
     assert "localStorage.removeItem" in javascript
     assert "button(\"Riprova\"" in javascript
+    assert "renderExplanationMarkdown" in javascript
+    assert "createTextNode" in javascript
+    assert all(
+        tag in javascript
+        for tag in ['"h3"', '"ul"', '"blockquote"', '"strong"', '"code"']
+    )
     assert "innerHTML" not in javascript
     assert "—" not in html + javascript
 
