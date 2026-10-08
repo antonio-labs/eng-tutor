@@ -1,0 +1,21 @@
+name: Codex Worker
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  codex:
+    if: github.event.label.name == 'codex:queued'
+
+    uses: ilNatalino/codex-workflows/.github/workflows/codex-worker.yml@main
+
+    with:
+      allowed_actor: ${{ vars.CODEX_ALLOWED_ACTOR }}
+      runner_label: codex-local
