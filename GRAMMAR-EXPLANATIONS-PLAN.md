@@ -3,6 +3,10 @@
 **Stato:** completato e verificato il 22 settembre 2026. Le evidenze automatiche,
 editoriali e browser sono registrate in [MVP-VALIDATION.md](MVP-VALIDATION.md).
 
+**Nota successiva:** questo documento conserva il piano storico basato su sei
+esercizi. La decisione D22 ha poi portato le nuove lezioni a tre blocchi da sei;
+la specifica corrente è in [MVP-SPEC.md](docs/specs/MVP-SPEC.md).
+
 Questo piano estende l'MVP descritto in [MVP-SPEC.md](docs/specs/MVP-SPEC.md) senza
 riaprire le attività già completate in [tasks.md](tasks.md). Le fonti e il
 perimetro delle 36 unità restano quelli di [A1-CURRICULUM.md](A1-CURRICULUM.md);

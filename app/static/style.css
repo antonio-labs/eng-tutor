@@ -461,6 +461,21 @@ h3 {
   margin-top: 2rem;
 }
 
+.practice-block {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.practice-block h3,
+.practice-description {
+  margin-bottom: 0;
+}
+
+.practice-description {
+  color: var(--muted);
+}
+
 .question {
   margin: 0;
   padding: 1.25rem;
@@ -517,6 +532,10 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
+}
+
+.practice-review {
+  margin-top: 2.5rem;
 }
 
 .answer-review {

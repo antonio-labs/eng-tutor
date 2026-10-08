@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from app.database import connect, initialize_database
+from app.database import SCHEMA, connect, initialize_database
 
 
 def test_database_initialization_is_repeatable_and_enforces_active_states(tmp_path) -> None:
@@ -47,3 +47,42 @@ def test_database_initialization_is_repeatable_and_enforces_active_states(tmp_pa
         assert connection.execute(
             "SELECT lesson_id FROM generation_calls WHERE id = 'call-1'"
         ).fetchone()["lesson_id"] is None
+
+
+def test_database_expands_score_range_without_losing_old_lessons(tmp_path) -> None:
+    database_path = tmp_path / "legacy.db"
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript(
+            SCHEMA.replace(
+                "correct_answers BETWEEN 0 AND 18",
+                "correct_answers BETWEEN 0 AND 6",
+            )
+        )
+        connection.execute(
+            """INSERT INTO lessons
+               (id, unit_id, content_json, status, correct_answers, created_at,
+                completed_at)
+               VALUES ('old', 'A1-01', '{}', 'completed', 6, 'created', 'done')"""
+        )
+        connection.execute(
+            """INSERT INTO generation_calls
+               (id, generation_group_id, lesson_id, outcome, created_at)
+               VALUES ('call', 'group', 'old', 'succeeded', 'created')"""
+        )
+
+    initialize_database(database_path)
+
+    with connect(database_path) as connection:
+        assert connection.execute(
+            "SELECT correct_answers FROM lessons WHERE id = 'old'"
+        ).fetchone()["correct_answers"] == 6
+        assert connection.execute(
+            "SELECT lesson_id FROM generation_calls WHERE id = 'call'"
+        ).fetchone()["lesson_id"] == "old"
+        connection.execute(
+            """INSERT INTO lessons
+               (id, unit_id, content_json, status, correct_answers, created_at,
+                completed_at)
+               VALUES ('new', 'A1-02', '{}', 'completed', 18, 'created', 'done')"""
+        )
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

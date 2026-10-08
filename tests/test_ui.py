@@ -27,6 +27,14 @@ def test_app_serves_three_view_frontend(tmp_path) -> None:
     assert "localStorage.removeItem" in javascript
     assert "button(\"Riprova\"" in javascript
     assert "renderExplanationMarkdown" in javascript
+    assert all(
+        practice_type in javascript
+        for practice_type in [
+            "form_choice",
+            "context_completion",
+            "error_correction",
+        ]
+    )
     assert "createTextNode" in javascript
     assert all(
         tag in javascript
@@ -44,6 +52,7 @@ def test_separate_database_can_render_completed_curriculum_state(tmp_path) -> No
     answers = {
         exercise.id: exercise.correct_option for exercise in lesson.exercises
     }
+    correct_answers = len(lesson.exercises)
     with connect(database_path) as connection:
         for unit in load_course().units:
             content = lesson.model_copy(update={"unit_id": unit.id})
@@ -51,12 +60,13 @@ def test_separate_database_can_render_completed_curriculum_state(tmp_path) -> No
                 """INSERT INTO lessons
                    (id, unit_id, content_json, status, answers_json,
                     correct_answers, created_at, completed_at)
-                   VALUES (?, ?, ?, 'completed', ?, 6, ?, ?)""",
+                   VALUES (?, ?, ?, 'completed', ?, ?, ?, ?)""",
                 (
                     str(uuid4()),
                     unit.id,
                     content.model_dump_json(),
                     json.dumps(answers),
+                    correct_answers,
                     utc_now(),
                     utc_now(),
                 ),

@@ -1,5 +1,22 @@
 const app = document.querySelector("#app");
 const announcer = document.querySelector("#announcer");
+const practiceBlocks = [
+  {
+    type: "form_choice",
+    title: "1. Scegli la forma corretta",
+    description: "Riconosci la forma grammaticale richiesta dalla frase.",
+  },
+  {
+    type: "context_completion",
+    title: "2. Completa nel contesto",
+    description: "Usa le informazioni del breve contesto per completare la frase.",
+  },
+  {
+    type: "error_correction",
+    title: "3. Trova la frase corretta",
+    description: "Confronta le alternative e individua l’unica frase corretta.",
+  },
+];
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -388,7 +405,9 @@ async function renderLesson(id) {
     element(
       "p",
       "",
-      `Spiegazione, tre esempi e ${lesson.content.exercises.length} esercizi.`,
+      lesson.content.exercises.length === 18
+        ? "Spiegazione, tre esempi e tre blocchi da sei esercizi."
+        : `Spiegazione, tre esempi e ${lesson.content.exercises.length} esercizi.`,
     ),
     element("p", "", `${lesson.content.timing.total_minutes} minuti stimati`),
   );
@@ -412,10 +431,24 @@ async function renderLesson(id) {
   teaching.append(examples);
 
   const form = element("form", "quiz");
-  form.append(element("h2", "", "Esercizi"));
-  lesson.content.exercises.forEach((exercise, index) => {
-    form.append(buildQuestion(exercise, index));
-  });
+  form.append(element("h2", "", "Pratica"));
+  let questionNumber = 0;
+  for (const block of practiceBlocks) {
+    const exercises = lesson.content.exercises.filter(
+      (exercise) => exercise.practice_type === block.type,
+    );
+    if (exercises.length === 0) continue;
+    const section = element("section", "practice-block");
+    section.append(
+      element("h3", "", block.title),
+      element("p", "practice-description", block.description),
+    );
+    for (const exercise of exercises) {
+      section.append(buildQuestion(exercise, questionNumber));
+      questionNumber += 1;
+    }
+    form.append(section);
+  }
   const draft = loadDraft(id);
   for (const exercise of lesson.content.exercises) {
     const selected = draft[exercise.id];
@@ -527,13 +560,25 @@ async function renderResult(id) {
 
   const review = element("section", "section");
   review.append(element("h2", "", "Correzione"));
-  const grid = element("div", "answer-grid");
-  completed.result.answers.forEach((answer, index) => {
-    grid.append(answerReview(answer, index));
-  });
+  let answerNumber = 0;
+  for (const block of practiceBlocks) {
+    const answers = completed.result.answers.filter(
+      (answer) => answer.practice_type === block.type,
+    );
+    if (answers.length === 0) continue;
+    const blockReview = element("section", "practice-review");
+    blockReview.append(element("h3", "", block.title));
+    const grid = element("div", "answer-grid");
+    for (const answer of answers) {
+      grid.append(answerReview(answer, answerNumber));
+      answerNumber += 1;
+    }
+    blockReview.append(grid);
+    review.append(blockReview);
+  }
   const actions = element("div", "actions section");
   actions.append(button("Torna alla home", "", () => navigate("home")));
-  review.append(grid, actions);
+  review.append(actions);
   app.replaceChildren(header, review);
   app.focus();
 }

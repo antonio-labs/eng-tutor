@@ -2,7 +2,7 @@
 
 Traccia di una sessione di grilling basata su [MVP-SPEC.md](docs/specs/MVP-SPEC.md) e sulla [visione originale](docs/specs/ai-english-tutor-mvp-spec.md).
 
-Lo scopo è capire che cosa vogliamo verificare, quali compromessi accettiamo e come gestire i casi concreti. Le risposte dell'autore a D01–D21 sono state registrate. Per ogni domanda, **la decisione dell'autore prevale sulla raccomandazione iniziale**; D17–D21 risolvono e aggiornano i punti delle risposte precedenti.
+Lo scopo è capire che cosa vogliamo verificare, quali compromessi accettiamo e come gestire i casi concreti. Le risposte dell'autore a D01–D22 sono state registrate. Per ogni domanda, **la decisione dell'autore prevale sulla raccomandazione iniziale**; le decisioni successive aggiornano i punti delle risposte precedenti.
 
 **Stato: chiarimenti conclusi per la pianificazione.** [MVP-SPEC.md](docs/specs/MVP-SPEC.md) contiene il perimetro allineato; [tasks.md](tasks.md) contiene le attività da sviluppare. Questo file conserva il ragionamento e le decisioni, non descrive funzionalità già implementate.
 
@@ -15,7 +15,9 @@ Non restano domande di prodotto bloccanti. La scelta del provider e del modello 
 ## Perimetro attuale
 
 - MVP personale, locale e senza account, con curriculum di grammatica A1 completo rispetto all'inventario didattico scelto nella [ricerca](A1-CURRICULUM.md). Il precedente limite di cinque argomenti è superato; A1 resta l'unico livello disponibile.
-- Ogni lezione contiene sei domande a scelta multipla e un budget didattico stimato di 15 minuti. Si avanza con almeno cinque risposte corrette; spiegazioni in italiano e contenuti di esercizio in inglese.
+- Ogni lezione contiene 18 esercizi in tre blocchi da sei e un budget didattico
+  stimato di 15 minuti. Si avanza con almeno 15 risposte corrette; spiegazioni
+  in italiano e contenuti di esercizio in inglese.
 - Le lezioni sono generate dall'AI; punteggi e avanzamento sono calcolati dall'app. La motivazione della soluzione viene generata insieme all'esercizio.
 - La soluzione prevista è un'app locale con Python/FastAPI, interfaccia semplice e SQLite. Nel progetto ci sono documenti, non ancora un'implementazione da verificare.
 - A2, account, altri tipi di esercizi, chat, voce e personalizzazione avanzata sono rinviati. Non serve ridiscuterli senza un motivo concreto emerso dalle risposte.
@@ -24,7 +26,8 @@ Non restano domande di prodotto bloccanti. La scelta del provider e del modello 
 
 - **Scopo:** progetto da mostrare sul profilo GitHub, con documentazione precisa; anche utilizzabile personalmente e potenzialmente trasformabile in prodotto.
 - **Valutazione:** l'autore giudica utilità e risultati attraverso i propri test. Nessuna valutazione automatica dell'utilità dell'app e nessuna soglia obbligatoria di adozione del prodotto.
-- **Avanzamento:** cinque risposte corrette su sei e nessun salto di argomento. Il numero di esercizi resta fisso anche dopo D19.
+- **Avanzamento:** 15 risposte corrette su 18 e nessun salto di argomento. D22
+  sostituisce il precedente formato da sei esercizi.
 - **Recupero:** «Scarta lezione» prima dell'invio, senza voto o cambiamenti ai progressi; nuova generazione solo su richiesta.
 - **Generazione:** client agnostico, un provider/modello configurato alla volta tramite API key; massimo 60 secondi complessivi e al massimo un tentativo automatico aggiuntivo. La scelta del provider è successiva e non blocca la pianificazione.
 - **Costi:** conteggio per ogni lezione creata, senza un tetto di spesa imposto dall'app. Questo non elimina timeout e limite dei tentativi già accettati, né costituisce una promessa sui limiti del servizio esterno.
@@ -272,6 +275,17 @@ Per il progetto GitHub, la documentazione dovrà spiegare scopo e limiti reali, 
 
 **La tua decisione:** sì, sarai tu a controllare manualmente correttezza degli esercizi, soluzioni e spiegazioni durante i test, verificando i casi dubbi con riferimenti affidabili e documentando i limiti della verifica. Nessun sistema di autovalutazione del prodotto.
 
+### D22 — Quanta pratica serve in una lezione da 15 minuti?
+
+**Evidenza dai test d'uso:** sei esercizi sono troppo pochi anche nella sessione
+breve da 15 minuti.
+
+**La tua decisione:** ogni nuova lezione contiene tre blocchi da sei esercizi,
+per un totale di 18. I blocchi allenano scelta della forma, completamento nel
+contesto e correzione dell'errore. Restano tre opzioni e una sola soluzione per
+mantenere la correzione deterministica; la soglia equivalente diventa 15/18.
+Le vecchie lezioni da sei esercizi restano consultabili.
+
 ## Cosa possiamo decidere durante l'implementazione
 
 Questi aspetti hanno già una direzione sufficiente e non richiedono altre domande di prodotto:
@@ -288,7 +302,8 @@ Non serve prevedere ogni possibile evoluzione. Serve poter descrivere una sessio
 
 - [x] Scopo principale, responsabilità della valutazione personale e importanza della documentazione sono espliciti.
 - [x] Copertura della grammatica A1, solo storico e 15 minuti stimati dai contenuti sono definiti: D17–D19.
-- [x] Scarto delle lezioni, soglia di avanzamento nel formato a sei esercizi e fine del percorso attuale sono accettati.
+- [x] Scarto delle lezioni, soglia di avanzamento 15/18 e fine del percorso
+  attuale sono accettati.
 - [x] Sono richiesti conteggio dei costi per lezione, nessun tetto di spesa applicativo e massimo 60 secondi di attesa.
 - [x] Client agnostico, scelta successiva del provider e controllo didattico manuale sono definiti: D20–D21.
 - [x] Uso locale da browser, persistenza dei dati e dipendenza dalla connessione per la generazione sono accettati.

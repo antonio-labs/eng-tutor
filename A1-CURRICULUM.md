@@ -12,7 +12,11 @@ Le unità seguenti sono una **scelta editoriale del progetto**: ordine, suddivis
 
 ## Unità
 
-Ogni unità corrisponde a un argomento dell'app. Prevede spiegazione, esempi, sei esercizi a scelta multipla e correzione, per **15 minuti stimati di contenuto**. Gli ID rimangono stabili nello storico. Le fonti nella colonna finale documentano le regole; l'attribuzione ad A1 segue l'inventario scelto.
+Ogni unità corrisponde a un argomento dell'app. Prevede spiegazione, esempi e
+tre blocchi da sei esercizi: scelta della forma, completamento nel contesto e
+correzione dell'errore. La lezione mantiene **15 minuti stimati di contenuto**.
+Gli ID rimangono stabili nello storico. Le fonti nella colonna finale
+documentano le regole; l'attribuzione ad A1 segue l'inventario scelto.
 
 | ID | Titolo | Obiettivo circoscritto della lezione | Riscontro |
 |---|---|---|---|
@@ -92,7 +96,8 @@ La tabella usa i **numeri originali delle voci dell'appendice E, sezione A1**, p
 ## Vincoli per i contenuti generati
 
 - Una lezione sviluppa soltanto il suo obiettivo, con eventuali strutture già introdotte. Non deve trasformare un argomento breve in una panoramica di tutte le eccezioni.
-- I sei esercizi distribuiscono la pratica sulle forme dichiarate nell'obiettivo; non sono sei domande equivalenti sulla stessa forma.
+- I 18 esercizi distribuiscono la pratica sulle forme dichiarate nell'obiettivo;
+  ogni blocco deve variare i casi invece di ripetere la stessa domanda.
 - Vocabolario quotidiano e contesto sufficiente a rendere corretta una sola opzione. Con can/could non chiedere di distinguere due alternative entrambe accettabili senza specificare l'intento.
 - Usare situazioni adulte semplici: presentazioni, famiglia, casa, routine, acquisti, spostamenti e tempo libero. Le risorse Kids/Teens qui citate verificano regole, non definiscono il pubblico del prodotto.
 - Escludere da questa versione present perfect, past continuous, condizionali, passivo e altri argomenti non inclusi nell'elenco. Le pagine di riscontro possono trattare anche questi contenuti: non vanno importate integralmente.

@@ -7,7 +7,7 @@ from app.models import EXERCISES_PER_LESSON
 DEFAULT_DATABASE_PATH = Path("data/tutor.db")
 
 
-SCHEMA = f"""
+LESSONS_TABLE = f"""
 CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     unit_id TEXT NOT NULL,
@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS lessons (
     completed_at TEXT,
     discarded_at TEXT
 );
+"""
 
+SCHEMA = f"""
+{LESSONS_TABLE}
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_lesson
 ON lessons ((1)) WHERE status = 'active';
 
@@ -51,6 +54,29 @@ CREATE INDEX IF NOT EXISTS generation_calls_group
 ON generation_calls (generation_group_id, created_at);
 """
 
+EXPAND_LESSON_SCORE_RANGE = f"""
+PRAGMA foreign_keys = OFF;
+BEGIN IMMEDIATE;
+CREATE TABLE lessons_new (
+    id TEXT PRIMARY KEY,
+    unit_id TEXT NOT NULL,
+    content_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'discarded')),
+    answers_json TEXT,
+    correct_answers INTEGER CHECK (
+        correct_answers BETWEEN 0 AND {EXERCISES_PER_LESSON}
+    ),
+    created_at TEXT NOT NULL,
+    completed_at TEXT,
+    discarded_at TEXT
+);
+INSERT INTO lessons_new SELECT * FROM lessons;
+DROP TABLE lessons;
+ALTER TABLE lessons_new RENAME TO lessons;
+COMMIT;
+PRAGMA foreign_keys = ON;
+"""
+
 
 def connect(path: Path = DEFAULT_DATABASE_PATH) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,4 +88,11 @@ def connect(path: Path = DEFAULT_DATABASE_PATH) -> sqlite3.Connection:
 
 def initialize_database(path: Path = DEFAULT_DATABASE_PATH) -> None:
     with connect(path) as connection:
+        existing = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'lessons'"
+        ).fetchone()
+        if existing:
+            normalized_sql = " ".join(existing["sql"].split())
+            if "correct_answers BETWEEN 0 AND 6" in normalized_sql:
+                connection.executescript(EXPAND_LESSON_SCORE_RANGE)
         connection.executescript(SCHEMA)

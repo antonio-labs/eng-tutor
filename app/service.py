@@ -17,7 +17,6 @@ from app.generation import (
     PracticeGenerator,
 )
 from app.models import (
-    EXERCISES_PER_LESSON,
     AttemptResult,
     CompletedLesson,
     CostSummary,
@@ -175,28 +174,33 @@ class TutorService:
                 """SELECT * FROM lessons WHERE status IN ('completed', 'discarded')
                    ORDER BY COALESCE(completed_at, discarded_at) DESC"""
             ).fetchall()
-            return [
-                HistoryItem(
-                    id=row["id"],
-                    unit=self._unit(row["unit_id"]),
-                    status=row["status"],
-                    correct_answers=row["correct_answers"],
-                    total_exercises=(
-                        EXERCISES_PER_LESSON
-                        if row["correct_answers"] is not None
-                        else None
-                    ),
-                    percentage=(
-                        score_percentage(row["correct_answers"])
-                        if row["correct_answers"] is not None
-                        else None
-                    ),
-                    created_at=row["created_at"],
-                    finished_at=row["completed_at"] or row["discarded_at"],
-                    cost=self._cost(connection, row["id"]),
+            history = []
+            for row in rows:
+                total_exercises = len(
+                    LessonContent.model_validate_json(row["content_json"]).exercises
                 )
-                for row in rows
-            ]
+                history.append(
+                    HistoryItem(
+                        id=row["id"],
+                        unit=self._unit(row["unit_id"]),
+                        status=row["status"],
+                        correct_answers=row["correct_answers"],
+                        total_exercises=(
+                            total_exercises
+                            if row["correct_answers"] is not None
+                            else None
+                        ),
+                        percentage=(
+                            score_percentage(row["correct_answers"], total_exercises)
+                            if row["correct_answers"] is not None
+                            else None
+                        ),
+                        created_at=row["created_at"],
+                        finished_at=row["completed_at"] or row["discarded_at"],
+                        cost=self._cost(connection, row["id"]),
+                    )
+                )
+            return history
 
     def get_result(self, lesson_id: str) -> CompletedLesson:
         with connect(self.database_path) as connection:
@@ -215,10 +219,19 @@ class TutorService:
     @staticmethod
     def _attempts(connection: sqlite3.Connection) -> list[AttemptResult]:
         rows = connection.execute(
-            """SELECT unit_id, correct_answers FROM lessons
+            """SELECT unit_id, correct_answers, content_json FROM lessons
                WHERE status = 'completed'"""
         ).fetchall()
-        return [AttemptResult(**dict(row)) for row in rows]
+        return [
+            AttemptResult(
+                unit_id=row["unit_id"],
+                correct_answers=row["correct_answers"],
+                total_exercises=len(
+                    LessonContent.model_validate_json(row["content_json"]).exercises
+                ),
+            )
+            for row in rows
+        ]
 
     def _row_to_session(self, row: sqlite3.Row) -> LessonSession:
         content = LessonContent.model_validate_json(row["content_json"])

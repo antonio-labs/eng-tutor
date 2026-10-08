@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Mapping
+from math import ceil
 
 from app.models import (
-    EXERCISES_PER_LESSON,
-    PASSING_CORRECT_ANSWERS,
     AnswerResult,
     AttemptResult,
     CurriculumUnit,
@@ -28,6 +27,7 @@ def grade_lesson(lesson: LessonContent, answers: Mapping[str, int]) -> LessonRes
         results.append(
             AnswerResult(
                 exercise_id=exercise.id,
+                practice_type=exercise.practice_type,
                 selected_option=selected,
                 selected_answer=exercise.options[selected],
                 correct_option=exercise.correct_option,
@@ -42,9 +42,9 @@ def grade_lesson(lesson: LessonContent, answers: Mapping[str, int]) -> LessonRes
         unit_id=lesson.unit_id,
         answers=results,
         correct_answers=correct_answers,
-        total_exercises=EXERCISES_PER_LESSON,
-        percentage=score_percentage(correct_answers),
-        passed=correct_answers >= PASSING_CORRECT_ANSWERS,
+        total_exercises=len(lesson.exercises),
+        percentage=score_percentage(correct_answers, len(lesson.exercises)),
+        passed=correct_answers >= passing_correct_answers(len(lesson.exercises)),
     )
 
 
@@ -52,7 +52,7 @@ def passed_unit_ids(attempts: Iterable[AttemptResult]) -> set[str]:
     return {
         attempt.unit_id
         for attempt in attempts
-        if attempt.correct_answers >= PASSING_CORRECT_ANSWERS
+        if attempt.correct_answers >= passing_correct_answers(attempt.total_exercises)
     }
 
 
@@ -63,5 +63,9 @@ def next_unit(
     return next((unit for unit in curriculum if unit.id not in passed), None)
 
 
-def score_percentage(correct_answers: int) -> int:
-    return round(correct_answers / EXERCISES_PER_LESSON * 100)
+def passing_correct_answers(total_exercises: int) -> int:
+    return ceil(total_exercises * 5 / 6)
+
+
+def score_percentage(correct_answers: int, total_exercises: int) -> int:
+    return round(correct_answers / total_exercises * 100)

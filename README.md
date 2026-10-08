@@ -2,8 +2,8 @@
 
 Applicazione web locale per esercitarsi sulla grammatica inglese A1 con
 spiegazioni editoriali e pratica generata da un modello linguistico. Il
-percorso contiene 36 unità ordinate, corregge sei domande per lezione e avanza
-con almeno 5 risposte corrette.
+percorso contiene 36 unità ordinate, propone tre blocchi da sei esercizi e
+avanza con almeno 15 risposte corrette su 18.
 
 L'MVP risolve un problema preciso: offrire sessioni brevi, riprendibili e
 verificabili senza introdurre account, servizi applicativi remoti o una
@@ -14,9 +14,9 @@ SQLite sul computer dell'utente.
 
 - percorso A1 sequenziale di 36 unità;
 - una lezione attiva alla volta, salvata prima di essere mostrata;
-- spiegazione Markdown curata, tre esempi e sei domande a scelta multipla;
+- spiegazione Markdown curata, tre esempi e 18 esercizi in tre blocchi;
 - bozze delle risposte conservate nel browser;
-- correzione deterministica, soglia 5/6 e risultati consultabili;
+- correzione deterministica, soglia 15/18 e risultati consultabili;
 - scarto della lezione senza avanzamento;
 - generazione tramite LiteLLM con massimo due chiamate in 60 secondi;
 - storico locale e stime di costo note, parziali o non disponibili.
@@ -43,9 +43,9 @@ attuale.
 1. La home mostra la prossima unità e il progresso complessivo.
 2. **Inizia** genera e salva la lezione; **Riprendi** riapre quella attiva.
 3. Le risposte selezionate restano nel browser anche dopo un ricaricamento.
-4. **Invia risposte** corregge i sei esercizi senza una nuova chiamata AI.
+4. **Invia risposte** corregge i 18 esercizi senza una nuova chiamata AI.
 5. Il risultato mostra punteggio, soluzioni, motivazioni e costo disponibile.
-6. Con almeno 5/6 la home passa all'unità successiva; altrimenti ripropone la
+6. Con almeno 15/18 la home passa all'unità successiva; altrimenti ripropone la
    stessa unità in una nuova lezione.
 
 ## Esempio del flusso verificato
@@ -53,8 +53,12 @@ attuale.
 Questa sequenza è stata eseguita il 19 settembre 2026 nell'app funzionante, con
 un database temporaneo e la lezione di esempio dichiarata come simulata:
 
+La prova usava ancora il formato iniziale da sei esercizi. Il formato attuale a
+tre blocchi conserva lo stesso flusso ed è coperto dalla suite automatica; il
+nuovo collaudo browser e provider è indicato tra le attività aperte.
+
 1. la home mostrava **Pronomi soggetto e presente di be** e progresso `0/36`;
-2. dopo **Inizia**, la pagina mostrava spiegazione, tre esempi e sei domande;
+2. dopo **Inizia**, la pagina mostrava spiegazione, tre esempi e gli esercizi;
 3. alcune risposte sono state selezionate e un ricaricamento le ha ripristinate;
 4. l'invio completo, anche con doppio clic, ha prodotto una sola volta il
    risultato `6/6`, `100%`, **Lezione superata**;
@@ -158,8 +162,9 @@ descrive competenze comunicative più ampie: completare questo percorso di sola
 grammatica non certifica il raggiungimento del livello A1.
 
 Ogni lezione riporta **15 minuti stimati**: 3 per spiegazione ed esempi, 9 per i
-sei esercizi e 3 per correzione e revisione. È un budget didattico assegnato dal
-backend, non un timer né una misura del tempo reale. Le 36 unità corrispondono a
+18 esercizi e 3 per correzione e revisione. Gli esercizi sono divisi in scelta
+della forma, completamento nel contesto e correzione dell'errore. È un budget
+didattico assegnato dal backend, non un timer né una misura del tempo reale. Le 36 unità corrispondono a
 540 minuti nominali, esclusi i tentativi ripetuti.
 
 ### Modificare una spiegazione
@@ -199,11 +204,11 @@ L'AI viene chiamata soltanto quando si avvia una nuova lezione. Riceve livello,
 identificativo, titolo, obiettivo e spiegazione Markdown verificata dell'unità,
 oltre alle lingue richieste e allo schema JSON. Non riceve lo storico, le
 risposte dell'utente o le lezioni precedenti. Il provider produce soltanto tre
-esempi e sei esercizi con soluzioni e motivazioni; non può restituire o
+esempi e 18 esercizi con soluzioni e motivazioni; non può restituire o
 sostituire ID e spiegazione. Il backend valida la pratica con Pydantic, la
 unisce ai contenuti curati e salva lo snapshot completo.
 
-Correzione, punteggio, soglia 5/6, avanzamento, scarto, storico e consultazione
+Correzione, punteggio, soglia 15/18, avanzamento, scarto, storico e consultazione
 dei risultati sono logica locale deterministica e non fanno altre richieste AI.
 Il comportamento previsto è definito nella [specifica dell'MVP](docs/specs/MVP-SPEC.md).
 
@@ -251,7 +256,8 @@ ciascuna delle 36 unità è stato revisionato; sei output iniziali hanno portato
 stringere il prompt e sono stati rigenerati con esito positivo. Quella prova
 precede la separazione delle spiegazioni dal payload AI; l'attuale contratto
 “pratica soltanto” è verificato dalla suite automatica senza una nuova chiamata
-esterna.
+esterna. Anche il successivo formato a 18 esercizi e tre tipologie è verificato
+automaticamente, ma non è ancora stato rigenerato con il provider reale.
 
 Il [report completo del collaudo](MVP-VALIDATION.md) contiene misure, prezzi
 ufficiali, problemi trovati, correzioni, checklist della specifica e limiti. Il

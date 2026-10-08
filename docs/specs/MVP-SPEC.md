@@ -1,6 +1,10 @@
 # AI English Tutor — Specifica MVP
 
-**Stato: MVP completato e verificato il 22 settembre 2026**, con evidenze in [MVP-VALIDATION.md](../../MVP-VALIDATION.md). La specifica è allineata alle decisioni D01–D21 di [MVP-GRILLING.md](../../MVP-GRILLING.md) e al piano completato delle [spiegazioni grammaticali](../../GRAMMAR-EXPLANATIONS-PLAN.md). Attività in [tasks.md](../../tasks.md); programma e fonti in [A1-CURRICULUM.md](../../A1-CURRICULUM.md). Il [documento originale](ai-english-tutor-mvp-spec.md) resta la visione estesa: per la prima implementazione prevale questa spec.
+**Stato: implementato e verificato automaticamente il 22 settembre 2026**, con
+evidenze in [MVP-VALIDATION.md](../../MVP-VALIDATION.md). La specifica include la
+decisione D22, nata dai test d'uso successivi al primo MVP. Attività in
+[tasks.md](../../tasks.md); programma e fonti in
+[A1-CURRICULUM.md](../../A1-CURRICULUM.md).
 
 ## 1. Obiettivo e confini
 
@@ -16,10 +20,14 @@ Ogni lezione tratta una sola unità del curriculum e contiene:
 
 - Una spiegazione editoriale in italiano, versionata nel backend come Markdown.
 - Tre esempi in inglese con brevi note in italiano.
-- Sei esercizi a scelta multipla, ciascuno con tre opzioni distinte e una sola soluzione valida.
+- Diciotto esercizi con tre opzioni, divisi in tre blocchi da sei: scelta della
+  forma, completamento nel contesto e individuazione della frase corretta.
 - Una motivazione della soluzione per ciascun esercizio, visibile dopo l'invio.
 
-Il backend assegna un budget didattico A1 fisso: **3 minuti** per spiegazione ed esempi, **9 minuti** per gli esercizi (1,5 ciascuno), **3 minuti** per correzione e revisione. La somma è sempre **15 minuti stimati**; i pesi iniziali verranno valutati nei test manuali. Nessun timer obbligatorio, attesa imposta o esercizio aggiunto automaticamente quando l'utente termina prima.
+Il backend assegna un budget didattico A1 fisso: **3 minuti** per spiegazione ed
+esempi, **9 minuti** per i tre blocchi di esercizi e **3 minuti** per correzione
+e revisione. La somma è sempre **15 minuti stimati** e resta da calibrare nei
+test manuali. Nessun timer obbligatorio o attesa imposta.
 
 ## 3. Esperienza utente
 
@@ -27,7 +35,7 @@ Tre viste semplici, anche nella stessa pagina:
 
 1. **Home:** prossimo argomento, unità superate sul totale del curriculum, «Inizia» oppure «Riprendi» e uno storico essenziale. Lo storico elenca lezioni completate e scartate con data, argomento, stato, punteggio quando presente e costo stimato; permette di riaprire i risultati delle lezioni completate. Nessun filtro o grafico.
 2. **Lezione:** spiegazione, esempi e tutti gli esercizi nella stessa pagina. L'utente seleziona tutte le risposte prima dell'invio; può scartare la lezione finché non l'ha inviata.
-3. **Risultato:** corrette su sei, percentuale, risposta scelta, soluzione e motivazione per ciascun esercizio, costo della generazione. Il prossimo avvio passa all'unità successiva oppure ripete quella non superata.
+3. **Risultato:** corrette su 18, percentuale, risposta scelta, soluzione e motivazione per ciascun esercizio, costo della generazione. Il prossimo avvio passa all'unità successiva oppure ripete quella non superata.
 
 «Scarta lezione» libera la lezione attiva senza voto o avanzamento e conserva il costo già sostenuto. La nuova generazione richiede un nuovo clic su «Inizia»; non parte automaticamente.
 
@@ -38,8 +46,10 @@ Dopo l'ultima unità superata, mostrare «Percorso di grammatica A1 completato»
 Il curriculum ordinato è definito in [A1-CURRICULUM.md](../../A1-CURRICULUM.md) e sarà tradotto in un unico file JSON versionato. Ogni unità ha identificativo stabile, titolo e obiettivo; la posizione nell'elenco determina l'ordine. Il modello non sceglie argomenti, livello o progressione.
 
 - Proporre la prima unità non ancora superata; una lezione attiva ha precedenza sulla nuova generazione.
-- Punteggio: `corrette / 6 × 100`, arrotondato all'intero solo per la visualizzazione.
-- Superamento: almeno cinque risposte corrette su sei. Quattro danno 67% e richiedono un nuovo tentativo; cinque danno 83% e consentono di avanzare.
+- Punteggio: `corrette / 18 × 100`, arrotondato all'intero solo per la visualizzazione.
+- Superamento: almeno 15 risposte corrette su 18, la stessa proporzione del
+  precedente 5/6. Dodici danno 67% e richiedono un nuovo tentativo; 15 danno
+  83% e consentono di avanzare.
 - Un risultato completato rimane immutabile. I tentativi non superati restano nello storico; il tentativo successivo genera nuovi contenuti per la stessa unità.
 - Progressi derivati dai risultati completati: nessun profilo separato, nessuna memoria di errori specifici, nessuna classificazione delle debolezze o personalizzazione del prompt in base agli errori.
 
@@ -47,7 +57,7 @@ Le risposte originali vengono salvate per riaprire il risultato, senza trasforma
 
 ## 5. Generazione AI e client agnostico
 
-Una richiesta genera soltanto la pratica: tre esempi e sei esercizi, comprese le
+Una richiesta genera soltanto la pratica: tre esempi e 18 esercizi, comprese le
 motivazioni delle soluzioni. Il backend carica la spiegazione Markdown verificata
 per l'unità, la invia come contesto autorevole insieme a livello, titolo,
 obiettivo, lingue e formato fisso, poi assembla il `LessonContent`. Non invia
@@ -64,9 +74,9 @@ può crearne di nuove.
 
 Il generatore richiede JSON con soli esempi ed esercizi; `unit_id` e
 `explanation` non fanno parte dello schema controllato dal provider. Ogni
-esercizio contiene identificativo, domanda, opzioni, indice della soluzione e
-motivazione. Il backend valida sempre i dati con Pydantic: testi non vuoti,
-quantità previste, ID univoci, tre opzioni distinte e indice valido. Il formato
+esercizio contiene identificativo, tipologia, domanda, opzioni, indice della
+soluzione e motivazione. Il backend valida sempre i dati con Pydantic: testi non
+vuoti, sei esercizi per ogni tipologia, ID univoci, tre opzioni distinte e indice valido. Il formato
 strutturato nativo si usa quando supportato dal modello; la compatibilità del
 client non garantisce le medesime capacità di output per ogni provider. [Output
 strutturati LiteLLM](https://docs.litellm.ai/docs/completion/json_mode).
@@ -126,7 +136,8 @@ Lezioni salvate, correzione e storico funzionano senza connessione; la generazio
 - [x] Progressi e lezioni sopravvivono al riavvio; errori del provider e del salvataggio non li alterano.
 - [x] Client agnostico configurabile, massimo due chiamate e 60 secondi complessivi; test automatici senza credenziali o chiamate a pagamento.
 - [x] Costi salvati e visibili, inclusi nuovi tentativi e lezioni scartate; valori mancanti e parziali sono espliciti.
-- [x] Dopo la scelta del provider: prova reale di generazione, formato, consumi, tariffe e tempi. Finché manca, indicare il collaudo reale come non eseguito.
+- [ ] Ripetere sul formato a 18 esercizi la prova reale di generazione già
+  completata sul precedente formato a sei esercizi.
 - [x] L'autore controlla manualmente un campione di lezioni per ogni unità e documenta problemi e limiti osservati.
 - [x] README con scopo, demo del comportamento reale, prerequisiti, avvio, configurazione, test, architettura essenziale, fonti del curriculum, limiti e roadmap; esempio di configurazione senza segreti.
 
@@ -134,6 +145,9 @@ La documentazione deve distinguere funzionalità implementate, test realmente es
 
 ## 9. Sviluppi successivi
 
-Fuori dall'MVP: A2 e scelta del livello, altri tipi di esercizi, sessioni da 30 minuti, memoria di errori specifici, adattamento dei contenuti, più lezioni per unità e ripasso dei temi già superati. Il dataset di esercizi divisi per livello ed eventuale RAG verranno progettati separatamente.
+Fuori dall'MVP: A2 e scelta del livello, risposte libere, sessioni da 30 minuti,
+memoria di errori specifici, adattamento dei contenuti, più lezioni per unità e
+ripasso dei temi già superati. Il dataset di esercizi divisi per livello ed
+eventuale RAG verranno progettati separatamente.
 
 Rimangono futuri anche account, più dispositivi, pubblicazione online, voce, chat, vocabolario, lettura, scrittura libera, livelli superiori, gamification e pagamenti. Nuovi agenti o infrastruttura saranno valutati solo se richiesti da una funzionalità concreta. Nessun codice preparatorio per queste evoluzioni.

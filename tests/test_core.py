@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from app.assessment import grade_lesson, next_unit
 from app.course import DATA_DIR, load_course, load_sample_lesson
 from app.main import app, root
-from app.models import AttemptResult, Exercise, LessonContent
+from app.models import AttemptResult, Exercise, LessonContent, PRACTICE_TYPES
 
 
 def test_course_matches_documented_coverage() -> None:
@@ -63,7 +63,14 @@ def test_sample_lesson_is_valid_and_hides_answers_from_browser() -> None:
 
     assert lesson.explanation.startswith("### Quando si usa")
     assert len(lesson.examples) == 3
-    assert len(lesson.exercises) == 6
+    assert len(lesson.exercises) == 18
+    assert {
+        practice_type: sum(
+            exercise.practice_type == practice_type
+            for exercise in lesson.exercises
+        )
+        for practice_type in PRACTICE_TYPES
+    } == {practice_type: 6 for practice_type in PRACTICE_TYPES}
     assert browser_payload["timing"] == {
         "explanation_and_examples_minutes": 3,
         "exercises_minutes": 9,
@@ -82,6 +89,11 @@ def test_lesson_validation_rejects_invalid_structure() -> None:
     with pytest.raises(ValidationError):
         LessonContent.model_validate(lesson_data)
 
+    lesson_data = load_sample_lesson().model_dump()
+    lesson_data["exercises"][6]["practice_type"] = "form_choice"
+    with pytest.raises(ValidationError, match="six exercises of each"):
+        LessonContent.model_validate(lesson_data)
+
     with pytest.raises(ValidationError):
         Exercise(
             id="q",
@@ -92,9 +104,23 @@ def test_lesson_validation_rejects_invalid_structure() -> None:
         )
 
 
+def test_legacy_six_exercise_lesson_remains_readable() -> None:
+    lesson_data = load_sample_lesson().model_dump()
+    lesson_data["exercises"] = lesson_data["exercises"][:6]
+    for exercise in lesson_data["exercises"]:
+        exercise.pop("practice_type")
+
+    lesson = LessonContent.model_validate(lesson_data)
+    answers = {exercise.id: exercise.correct_option for exercise in lesson.exercises}
+    result = grade_lesson(lesson, answers)
+
+    assert result.correct_answers == result.total_exercises == 6
+    assert result.passed is True
+
+
 @pytest.mark.parametrize(
     ("wrong_answers", "correct", "percentage", "passed"),
-    [(2, 4, 67, False), (1, 5, 83, True)],
+    [(6, 12, 67, False), (3, 15, 83, True)],
 )
 def test_assessment_uses_fixed_a1_rules(
     wrong_answers: int, correct: int, percentage: int, passed: bool
@@ -107,7 +133,7 @@ def test_assessment_uses_fixed_a1_rules(
     result = grade_lesson(lesson, answers)
 
     assert result.correct_answers == correct
-    assert result.total_exercises == 6
+    assert result.total_exercises == 18
     assert result.percentage == percentage
     assert result.passed is passed
     assert all(answer.selected_answer for answer in result.answers)
@@ -119,18 +145,26 @@ def test_progression_handles_no_results_retries_and_completion() -> None:
 
     assert next_unit(units, []) == units[0]
     assert next_unit(
-        units, [AttemptResult(unit_id="A1-01", correct_answers=4)]
+        units,
+        [AttemptResult(unit_id="A1-01", correct_answers=12, total_exercises=18)],
     ) == units[0]
     assert next_unit(
         units,
         [
-            AttemptResult(unit_id="A1-01", correct_answers=4),
-            AttemptResult(unit_id="A1-01", correct_answers=5),
+            AttemptResult(unit_id="A1-01", correct_answers=12, total_exercises=18),
+            AttemptResult(unit_id="A1-01", correct_answers=15, total_exercises=18),
         ],
     ) == units[1]
     assert next_unit(
         units,
-        [AttemptResult(unit_id=unit.id, correct_answers=5) for unit in units],
+        [
+            AttemptResult(
+                unit_id=unit.id,
+                correct_answers=15,
+                total_exercises=18,
+            )
+            for unit in units
+        ],
     ) is None
 
 

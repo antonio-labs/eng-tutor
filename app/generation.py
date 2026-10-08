@@ -29,6 +29,7 @@ from pydantic import Field, ValidationError
 from app.course import load_sample_lesson
 from app.database import connect
 from app.models import (
+    EXERCISES_PER_BLOCK,
     EXERCISES_PER_LESSON,
     CostSummary,
     CourseUnitContent,
@@ -37,6 +38,7 @@ from app.models import (
     LessonContent,
     LessonExample,
     Model,
+    PracticeType,
 )
 
 
@@ -47,9 +49,13 @@ GENERATION_UNAVAILABLE_MESSAGE = (
 )
 
 
+class _GeneratedExercise(Exercise):
+    practice_type: PracticeType
+
+
 class _GeneratedPractice(Model):
     examples: list[LessonExample] = Field(min_length=3, max_length=3)
-    exercises: list[Exercise] = Field(
+    exercises: list[_GeneratedExercise] = Field(
         min_length=EXERCISES_PER_LESSON,
         max_length=EXERCISES_PER_LESSON,
     )
@@ -216,11 +222,15 @@ class LiteLLMGenerator:
                     "and rationales. Keep every example sentence, question, option "
                     "and correct answer in English and strictly within the unit "
                     "objective. Keep vocabulary at A1 level. Create exactly three "
-                    "examples and six distinct, self-contained multiple-choice "
-                    "questions with three distinct options, exactly one "
-                    "unambiguously correct option and one rationale each. Do not use "
-                    "distractors that are valid under another plausible "
-                    "interpretation."
+                    f"examples and {EXERCISES_PER_LESSON} distinct exercises in "
+                    f"three blocks of {EXERCISES_PER_BLOCK}. Set practice_type to "
+                    "form_choice for six questions that choose the correct grammar "
+                    "form, context_completion for six short contextual completions, "
+                    "and error_correction for six questions that choose the only "
+                    "grammatically correct sentence. Keep every exercise self-contained "
+                    "with three distinct options, exactly one unambiguously correct "
+                    "option and one rationale. Do not use distractors that are valid "
+                    "under another plausible interpretation."
                 ),
                 "json_schema": _GeneratedPractice.model_json_schema(),
             },
@@ -250,7 +260,10 @@ class LiteLLMGenerator:
                 unit_id=unit.id,
                 explanation=explanation,
                 examples=practice.examples,
-                exercises=practice.exercises,
+                exercises=[
+                    Exercise.model_validate(exercise.model_dump())
+                    for exercise in practice.exercises
+                ],
             )
         except ValidationError as error:
             raise InvalidGenerationResponse(error, metrics) from error

@@ -151,12 +151,23 @@ def test_generation_sends_only_lesson_context_and_validates_json(monkeypatch) ->
         "examples",
         "exercises",
     }
+    generated_exercise_schema = sent["format"]["json_schema"]["$defs"][
+        "_GeneratedExercise"
+    ]
+    assert "practice_type" in generated_exercise_schema["required"]
+    assert generated_exercise_schema["properties"]["practice_type"]["enum"] == [
+        "form_choice",
+        "context_completion",
+        "error_correction",
+    ]
     instructions = sent["format"]["instructions"]
     assert "Do not return or rewrite the explanation" in instructions
     assert "do not return a unit ID" in instructions
     assert "English grammar only" in instructions
     assert "strictly within the unit objective" in instructions
     assert "exactly one unambiguously correct option" in instructions
+    assert "18 distinct exercises" in instructions
+    assert "three blocks of 6" in instructions
     assert "history" not in captured["messages"][0]["content"].lower()
     assert all(exercise.rationale for exercise in lesson.exercises)
 

@@ -206,3 +206,20 @@ automatici non usano la chiave e non chiamano il provider.
 - Il costo è una stima LiteLLM e può differire dalla fattura del provider.
 - Il percorso copre la grammatica prevista dal curriculum, non certifica il
   raggiungimento complessivo del livello CEFR A1.
+
+## Evoluzione D22: tre blocchi di pratica
+
+Dopo il collaudo iniziale, i test d'uso dell'autore hanno mostrato che sei
+esercizi non occupavano adeguatamente la sessione stimata di 15 minuti. Le nuove
+lezioni contengono quindi 18 esercizi in tre blocchi da sei: scelta della forma,
+completamento nel contesto e correzione dell'errore. La soglia equivalente passa
+da 5/6 a 15/18.
+
+La suite aggiornata verifica quantità e distribuzione dei tipi, schema inviato
+al provider, correzione, avanzamento, rendering dei blocchi, persistenza e
+migrazione conservativa del vincolo SQLite. Le lezioni storiche da sei esercizi
+restano leggibili e mantengono la precedente soglia. Esito: **43 test superati**.
+
+Il nuovo formato non è ancora stato generato con il provider reale né percorso
+nel browser come sessione completa; qualità dei 18 output, latenza, costo e
+durata effettiva restano il prossimo collaudo manuale.

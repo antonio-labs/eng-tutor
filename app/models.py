@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -5,8 +6,19 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 OptionIndex = Annotated[int, Field(strict=True, ge=0, le=2)]
-EXERCISES_PER_LESSON = 6
-PASSING_CORRECT_ANSWERS = 5
+EXERCISES_PER_BLOCK = 6
+PRACTICE_TYPES = (
+    "form_choice",
+    "context_completion",
+    "error_correction",
+)
+EXERCISES_PER_LESSON = EXERCISES_PER_BLOCK * len(PRACTICE_TYPES)
+LEGACY_EXERCISES_PER_LESSON = 6
+PracticeType = Literal[
+    "form_choice",
+    "context_completion",
+    "error_correction",
+]
 
 
 class Model(BaseModel):
@@ -31,6 +43,7 @@ class LessonExample(Model):
 
 class Exercise(Model):
     id: NonEmptyText
+    practice_type: PracticeType = "form_choice"
     question: NonEmptyText
     options: list[NonEmptyText] = Field(min_length=3, max_length=3)
     correct_option: OptionIndex
@@ -48,15 +61,21 @@ class LessonContent(Model):
     explanation: NonEmptyText
     examples: list[LessonExample] = Field(min_length=3, max_length=3)
     exercises: list[Exercise] = Field(
-        min_length=EXERCISES_PER_LESSON,
+        min_length=LEGACY_EXERCISES_PER_LESSON,
         max_length=EXERCISES_PER_LESSON,
     )
 
     @model_validator(mode="after")
-    def exercise_ids_are_unique(self) -> "LessonContent":
+    def exercise_structure_is_valid(self) -> "LessonContent":
         ids = [exercise.id for exercise in self.exercises]
         if len(set(ids)) != len(ids):
             raise ValueError("exercise ids must be unique")
+        if len(self.exercises) == LEGACY_EXERCISES_PER_LESSON:
+            return self
+        expected = Counter({kind: EXERCISES_PER_BLOCK for kind in PRACTICE_TYPES})
+        actual = Counter(exercise.practice_type for exercise in self.exercises)
+        if actual != expected:
+            raise ValueError("lesson must contain six exercises of each practice type")
         return self
 
     def for_browser(self) -> "LessonView":
@@ -65,7 +84,12 @@ class LessonContent(Model):
             explanation=self.explanation,
             examples=self.examples,
             exercises=[
-                PublicExercise(id=item.id, question=item.question, options=item.options)
+                PublicExercise(
+                    id=item.id,
+                    practice_type=item.practice_type,
+                    question=item.question,
+                    options=item.options,
+                )
                 for item in self.exercises
             ],
         )
@@ -73,6 +97,7 @@ class LessonContent(Model):
 
 class PublicExercise(Model):
     id: NonEmptyText
+    practice_type: PracticeType
     question: NonEmptyText
     options: list[NonEmptyText] = Field(min_length=3, max_length=3)
 
@@ -112,6 +137,7 @@ class LearningSummary(Model):
 
 class AnswerResult(Model):
     exercise_id: NonEmptyText
+    practice_type: PracticeType
     selected_option: OptionIndex
     selected_answer: NonEmptyText
     correct_option: OptionIndex
@@ -182,3 +208,7 @@ class FailedGeneration(Model):
 class AttemptResult(Model):
     unit_id: NonEmptyText
     correct_answers: int = Field(ge=0, le=EXERCISES_PER_LESSON)
+    total_exercises: int = Field(
+        ge=LEGACY_EXERCISES_PER_LESSON,
+        le=EXERCISES_PER_LESSON,
+    )

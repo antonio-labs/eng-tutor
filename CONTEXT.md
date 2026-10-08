@@ -13,7 +13,8 @@ L’identità, il titolo, l’obiettivo e la spiegazione editoriale verificata d
 _Avoid_: Lezione, pratica
 
 **Pratica**:
-I tre esempi e i sei esercizi generati per un Contenuto dell’unità.
+I tre esempi e i 18 esercizi, divisi in tre blocchi da sei, generati per un
+Contenuto dell’unità.
 _Avoid_: Contenuto, spiegazione
 
 **Lezione**:

@@ -69,3 +69,17 @@ Collaudo, misure, revisione dei contenuti e limiti sono registrati in
 - [x] **6.3 — Demo fedele.** Aggiungere una breve sequenza di schermate o un esempio del flusso ottenuto dall'app funzionante, senza segreti o dati personali. Separare nel README funzionalità presenti, limiti osservati e roadmap: memoria degli errori, dataset/RAG, più lezioni per argomento e ripassi restano futuri.
 
 **Risultato verificabile:** un visitatore del repository comprende cosa fa davvero l'MVP, lo può avviare seguendo le istruzioni e sa quali prove sono state eseguite. La pubblicazione su GitHub e il deployment non fanno parte di queste attività.
+
+## 7. Densità della pratica dopo i test d'uso
+
+- [x] **7.1 — Tre blocchi.** Portare ogni nuova lezione a 18 esercizi: sei di
+  scelta della forma, sei di completamento nel contesto e sei di correzione
+  dell'errore.
+- [x] **7.2 — Valutazione e compatibilità.** Usare la soglia 15/18, raggruppare
+  pratica e correzione nell'interfaccia e mantenere leggibili le lezioni
+  storiche da sei esercizi.
+- [x] **7.3 — Persistenza.** Ampliare in modo automatico e conservativo il
+  vincolo SQLite sul punteggio, senza perdere lezioni o chiamate salvate.
+- [ ] **7.4 — Nuovo collaudo reale.** Generare una lezione con il provider
+  configurato e controllare qualità dei tre blocchi, latenza, costo e durata
+  effettiva della sessione.

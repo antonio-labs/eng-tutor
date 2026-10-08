@@ -5,11 +5,25 @@
     {"sentence": "They are friends.", "note": "Con they si usa are."}
   ],
   "exercises": [
-    {"id": "q1", "question": "I ___ Anna.", "options": ["am", "is", "are"], "correct_option": 0, "rationale": "Il pronome I richiede am."},
-    {"id": "q2", "question": "Marco ___ from Rome.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "Marco corrisponde a he, quindi richiede is."},
-    {"id": "q3", "question": "We ___ students.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome we richiede are."},
-    {"id": "q4", "question": "My cat ___ small.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "My cat corrisponde a it, quindi richiede is."},
-    {"id": "q5", "question": "You ___ Paolo.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome you richiede are."},
-    {"id": "q6", "question": "Sara and Tom ___ colleagues.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Sara and Tom corrisponde a they, quindi richiede are."}
+    {"id": "q1", "practice_type": "form_choice", "question": "I ___ Anna.", "options": ["am", "is", "are"], "correct_option": 0, "rationale": "Il pronome I richiede am."},
+    {"id": "q2", "practice_type": "form_choice", "question": "Marco ___ from Rome.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "Marco corrisponde a he, quindi richiede is."},
+    {"id": "q3", "practice_type": "form_choice", "question": "We ___ students.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome we richiede are."},
+    {"id": "q4", "practice_type": "form_choice", "question": "My cat ___ small.", "options": ["am", "is", "are"], "correct_option": 1, "rationale": "My cat corrisponde a it, quindi richiede is."},
+    {"id": "q5", "practice_type": "form_choice", "question": "You ___ Paolo.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Il pronome you richiede are."},
+    {"id": "q6", "practice_type": "form_choice", "question": "Sara and Tom ___ colleagues.", "options": ["am", "is", "are"], "correct_option": 2, "rationale": "Sara and Tom corrisponde a they, quindi richiede are."},
+
+    {"id": "q7", "practice_type": "context_completion", "question": "This is Anna. ___ from Milan.", "options": ["She is", "They are", "I am"], "correct_option": 0, "rationale": "Anna corrisponde al pronome she, seguito da is."},
+    {"id": "q8", "practice_type": "context_completion", "question": "Tom and I work here. ___ colleagues.", "options": ["We are", "He is", "They am"], "correct_option": 0, "rationale": "Tom and I corrisponde a we, seguito da are."},
+    {"id": "q9", "practice_type": "context_completion", "question": "Look at that dog. ___ very friendly.", "options": ["It is", "He are", "I am"], "correct_option": 0, "rationale": "Per un animale indicato come that dog si usa it is."},
+    {"id": "q10", "practice_type": "context_completion", "question": "Anna and Leo live in Rome. ___ Italian.", "options": ["They are", "She is", "We am"], "correct_option": 0, "rationale": "Anna and Leo corrisponde a they, seguito da are."},
+    {"id": "q11", "practice_type": "context_completion", "question": "My name is Paolo. ___ a student.", "options": ["I am", "You are", "He is"], "correct_option": 0, "rationale": "Chi parla di sé usa I am."},
+    {"id": "q12", "practice_type": "context_completion", "question": "I am your teacher. ___ in my class.", "options": ["You are", "It is", "She am"], "correct_option": 0, "rationale": "Rivolgendosi all'interlocutore si usa you are."},
+
+    {"id": "q13", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["I am ready.", "I is ready.", "I are ready."], "correct_option": 0, "rationale": "Con I la forma corretta di be è am."},
+    {"id": "q14", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["She are at home.", "She is at home.", "She am at home."], "correct_option": 1, "rationale": "Con she la forma corretta di be è is."},
+    {"id": "q15", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["We is late.", "We am late.", "We are late."], "correct_option": 2, "rationale": "Con we la forma corretta di be è are."},
+    {"id": "q16", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["The books are new.", "The books is new.", "The books am new."], "correct_option": 0, "rationale": "The books è plurale e richiede are."},
+    {"id": "q17", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["My phone are here.", "My phone is here.", "My phone am here."], "correct_option": 1, "rationale": "My phone è singolare e richiede is."},
+    {"id": "q18", "practice_type": "error_correction", "question": "Choose the correct sentence.", "options": ["You is welcome.", "You am welcome.", "You are welcome."], "correct_option": 2, "rationale": "Con you la forma corretta di be è are."}
   ]
 }
